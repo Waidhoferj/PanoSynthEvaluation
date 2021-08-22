@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     cylinder_path = "data/cylinder-panos"
     scene_path = "habitat/scenes/skokloster-castle.glb" # TODO: automatically download scenes into folder
-    texture_path = os.path.join(cylinder_path, 'layers/layer_%d.png')
+    texture_path = os.path.join("data", "layers", "layer_%d.png")
     img_size = (512,512)
     pano_size = (img_size[0], img_size[0] * 2)
 
@@ -87,7 +87,8 @@ if __name__ == '__main__':
     
     actual_depth = imread(os.path.join(
         cylinder_path, 'actual_depth.png')).astype('float32')
-    sigma = compute_sigma(predicted_depth, actual_depth).numpy()
+    sigma = 1 # TODO: Fix issue with compute_sigma
+    # compute_sigma(predicted_depth, actual_depth).numpy()
     angles = np.linspace(0, 2* np.pi, 13)
     targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in angles]
     eye = np.zeros(3)
