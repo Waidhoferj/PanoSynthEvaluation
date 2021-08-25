@@ -9,6 +9,7 @@ from rendertools import *
 from imageio import imwrite
 
 import tensorflow as tf
+from scipy.spatial.transform import Rotation
 from pathlib import Path
 from habitat.panorama_extractor import PanoExtractor
 from evaluation import render_image, compute_sigma
@@ -36,44 +37,56 @@ def check_dependencies():
 
 if __name__ == '__main__':
     # Filepaths
-
     cylinder_path = "data/cylinder-panos"
     scene_path = "habitat/scenes/skokloster-castle.glb" # TODO: automatically download scenes into folder
     texture_path = os.path.join("data", "layers", "layer_%d.png")
+
+    # Parameters
+    # Will run Habitat, panorama conversion, and MPI model pipeline if True. Otherwise uses previously produced images.
+    should_generate_data = True
     img_size = (512,512)
-    pano_size = (img_size[0], img_size[0] * 2)
+    pano_size = (img_size[0], img_size[0] * 4)
+    # NOTE: This method of generating targets is temporarily used to find the change of coordinates matrix.
+    angles = np.linspace(0, 2* np.pi, 13) # angles to generate targets
+    targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in angles] # Look-at points
+    eye = np.zeros(3)
 
     check_dependencies()
     # Import after dependencies exist
     from generate_mpi import generate_mpi
 
+    if should_generate_data:
+        extractor = PanoExtractor(
+            scene_path,
+            img_size=pano_size,
+            output=["rgba", "depth"],
+            shuffle=False)
 
-    extractor = PanoExtractor(
-        scene_path,
-        img_size=pano_size,
-        output=["rgba", "depth"],
-        shuffle=False)
+        sphere_pano = extractor[0]
+        
+        converter = Converter(output_height=pano_size[0],
+                            output_width=pano_size[1])
+        os.makedirs(cylinder_path, exist_ok=True)
+        depth = sphere_pano["depth"]
+        depth[depth < 1.0] = 1.0
+        depth = 255.0 / depth
+        depth = depth.astype("uint8")
+        for filename, pano in zip(["scene.jpeg", "actual_depth.png"], [sphere_pano["rgba"][..., :3], depth]):
+            if len(pano.shape) < 3:
+                pano = np.expand_dims(pano, axis=-1)
+            res = converter.convert(pano).numpy().astype("uint8")
+            imwrite(os.path.join(cylinder_path,filename), res)
 
-    sphere_pano = extractor[0]
-    
-    converter = Converter(output_height=pano_size[0],
-                          output_width=pano_size[1])
-    os.makedirs(cylinder_path, exist_ok=True)
-    depth = sphere_pano["depth"]
-    depth[depth < 1.0] = 1.0
-    depth = 255.0 / depth
-    depth = depth.astype("uint8")
-    for filename, pano in zip(["scene.jpeg", "actual_depth.png"], [sphere_pano["rgba"][..., :3], depth]):
-        if len(pano.shape) < 3:
-            pano = np.expand_dims(pano, axis=-1)
-        res = converter.convert(pano).numpy().astype("uint8")
-        imwrite(os.path.join(cylinder_path,filename), res)
-
-    disparity_map, layers = generate_mpi(os.path.join(cylinder_path, "scene.jpeg"))
-    imwrite(os.path.join(cylinder_path, "predicted_depth.png"), disparity_map)
-    os.makedirs("data/layers", exist_ok=True)
-    for i, layer in enumerate(layers):
-        imageio.imsave(f"data/layers/layer_{i}.png", layer.numpy())
+        disparity_map, layers = generate_mpi(os.path.join(cylinder_path, "scene.jpeg"))
+        imwrite(os.path.join(cylinder_path, "predicted_depth.png"), disparity_map)
+        os.makedirs("data/layers", exist_ok=True)
+        for i, layer in enumerate(layers):
+            imageio.imsave(f"data/layers/layer_{i}.png", layer.numpy())
+        os.makedirs("data/snapshots", exist_ok=True)
+        for i,target in enumerate(targets):
+            imageio.imsave(f"data/snapshots/snapshot_{i}.png", extractor.create_snapshot(0,target))
+            
+        extractor.close()
 
 
     # Create output directory
@@ -87,32 +100,19 @@ if __name__ == '__main__':
     
     actual_depth = imread(os.path.join(
         cylinder_path, 'actual_depth.png')).astype('float32')
-    sigma = 1 # TODO: Fix issue with compute_sigma
-    # compute_sigma(predicted_depth, actual_depth).numpy()
-    angles = np.linspace(0, 2* np.pi, 13)
-    targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in angles]
-    eye = np.zeros(3)
+    sigma = compute_sigma(predicted_depth, actual_depth)
     
-
-   
+    habitat_renders = [imageio.imread(f"data/snapshots/snapshot_{i}.png")[..., :3] for i in range(0, len(targets))]
     
-    habitat_renders = [extractor.create_snapshot(0,target)[..., :3] for target in targets]
-    extractor.close()
-
-    rot = np.pi / 180 * 210
-    translation = np.array([1,0,30])
-    eye += translation
-    
-    transformed_angles = [angle + rot for angle in angles]
-    targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in transformed_angles]
-    targets += translation
+    # TODO: Find the change of coordinates that translates between Habitat and MCI Renderer
+    transform = Rotation.from_euler("y", 45, degrees=True).as_matrix()
+    targets = [ target @ transform.T for target in targets]
 
     # Create mci renders
     mci_renders = [render_image(img_size, texture_path, eye, target, sigma=sigma) for target in targets]
-
-    for angle, mci_render, habitat_render in zip(angles, mci_renders, habitat_renders):
-        image = np.concatenate([mci_render, habitat_render], axis=1)
-        imwrite(f'data/renderer-comparison/comparison_{round(angle * 180.0 / np.pi)}.png', image)
+    #plot ranges of sigmas based on the MSE
+    for angle, habitat_render, mci_render in zip(angles, habitat_renders, mci_renders):
+        image = np.concatenate([ habitat_render, mci_render], axis=1)
+        imwrite(f'data/renderer-comparison/comparison_{round(angle * 180 / np.pi)}.png', image)
         mse = ((mci_render - habitat_render)**2).mean(axis=None)
         print('MSE: ', mse)
-    # shutil.rmtree("data")

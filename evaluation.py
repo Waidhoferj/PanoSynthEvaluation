@@ -16,24 +16,12 @@ import tensorflow as tf
 import argparse
 
 
-def compute_sigma(pred_disp, points):
-    height, width = pred_disp.shape
-
-    sigmas = []
-
-    for i in range(0, width, height):
-        square_pd = pred_disp[:, i:i+height]
-        square_ad = points[:, i:i+height]
-
-        pd = tf.math.log(square_pd)
-        p_depths = tf.where(~tf.math.is_finite(pd), tf.zeros_like(pd), pd)
-
-        ad = tf.math.log(tf.linalg.inv(square_ad))
-        a_depths = tf.where(~tf.math.is_finite(ad), tf.zeros_like(ad), ad)
-
-        s = tf.math.exp(tf.reduce_mean(p_depths + a_depths))
-        sigmas.append(s)
-    return tf.reduce_mean(sigmas)
+def compute_sigma(pred_disp,actual_disp):
+    zero_mask = (actual_disp != 0) & (pred_disp != 0)
+    actual_disp = np.log(actual_disp[zero_mask]) 
+    pred_disp = np.log(pred_disp[zero_mask])
+    sigma = np.exp(np.mean(pred_disp-actual_disp))
+    return sigma
 
 
 
