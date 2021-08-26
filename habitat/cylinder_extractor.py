@@ -113,7 +113,16 @@ class CylinderExtractor(ImageExtractor):
 
     def create_panorama(self,index:int):
         img_size = 2048
-        return self[img_size*index:(index+1)*img_size]
+        depth =[]
+        color = []
+        for img in self[img_size*index:(index+1)*img_size]:
+            depth.append(img["depth"])
+            color.append(img["rgba"])
+
+        depth = np.concatenate(depth, axis=1)
+        color = np.concatenate(color, axis=1)
+        return {"depth": depth, "rgba": color}
+
 
 
 # Pose extractor code
@@ -188,8 +197,6 @@ class CylinderPoseExtractor(PoseExtractor):
             neighbors.append(lap.tolist())
         return neighbors
 
-
-
 def lookAt(eye, center, up):
     F = center - eye
 
@@ -224,8 +231,8 @@ if __name__ == "__main__":
         pose_extractor_name="cylinder_pose_extractor",
         shuffle=False)
     index = 2
-    img = np.concatenate([img["rgba"] for img in extractor[index*2048:(index + 1)*2048]], axis=1)
-    plt.imsave("test.png", img.astype("uint8"))
+    img = extractor.create_panorama(index)
+    plt.imsave("test.png", img["rgba"])
 
     extractor.close()
 
