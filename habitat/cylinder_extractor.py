@@ -89,7 +89,7 @@ class CylinderExtractor(ImageExtractor):
         """
 
         poses = self.mode_to_data[self.mode.lower()]
-        pos, _, fp = poses[index]
+        pos, _, fp = poses[index*2048]
 
         # Only switch scene if it is different from the last one accessed
         if fp != self.cur_fp:
@@ -192,7 +192,7 @@ class CylinderPoseExtractor(PoseExtractor):
         self, point: Tuple[int, int, int], view: ndarray, dist: int
     ) -> List[Tuple[int, int]]:
         neighbors = []
-        for angle in np.linspace(0, np.pi * 2, 2048, endpoint=False):
+        for angle in np.linspace(np.pi * 2, 0, 2048, endpoint=False):
             lap = np.array([np.sin(angle)* 3, 0, np.cos(angle) * 3]) + point
             neighbors.append(lap.tolist())
         return neighbors

@@ -12,6 +12,7 @@ import tensorflow as tf
 from scipy.spatial.transform import Rotation
 from pathlib import Path
 from habitat.panorama_extractor import PanoExtractor
+from habitat.cylinder_extractor import CylinderExtractor
 from evaluation import render_image, compute_sigma
 import subprocess
 from habitat.convert import Converter 
@@ -20,6 +21,7 @@ import subprocess
 import pysvn
 import requests
 import tarfile
+import matplotlib.pyplot as plt
 
 
 
@@ -46,6 +48,7 @@ if __name__ == '__main__':
     should_generate_data = True
     img_size = (512,512)
     pano_size = (img_size[0], img_size[0] * 4)
+    pano_index = 3
     # NOTE: This method of generating targets is temporarily used to find the change of coordinates matrix.
     angles = np.linspace(0, 2* np.pi, 13) # angles to generate targets
     targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in angles] # Look-at points
@@ -54,37 +57,44 @@ if __name__ == '__main__':
     check_dependencies()
     # Import after dependencies exist
     from generate_mpi import generate_mpi
-
+    os.makedirs(cylinder_path, exist_ok=True)
     if should_generate_data:
-        extractor = PanoExtractor(
+        extractor = CylinderExtractor(
             scene_path,
-            img_size=pano_size,
+            img_size=(512, 2048),
             output=["rgba", "depth"],
+            pose_extractor_name="cylinder_pose_extractor",
             shuffle=False)
 
-        sphere_pano = extractor[0]
-        
-        converter = Converter(output_height=pano_size[0],
-                            output_width=pano_size[1])
-        os.makedirs(cylinder_path, exist_ok=True)
-        depth = sphere_pano["depth"]
+        cylinder_pano = extractor.create_panorama(pano_index)
+        depth = cylinder_pano["depth"]
         depth[depth < 1.0] = 1.0
         depth = 255.0 / depth
         depth = depth.astype("uint8")
-        for filename, pano in zip(["scene.jpeg", "actual_depth.png"], [sphere_pano["rgba"][..., :3], depth]):
-            if len(pano.shape) < 3:
-                pano = np.expand_dims(pano, axis=-1)
-            res = converter.convert(pano).numpy().astype("uint8")
-            imwrite(os.path.join(cylinder_path,filename), res)
+        imwrite(os.path.join(cylinder_path,"actual_depth.png"), depth)
+        imwrite(os.path.join(cylinder_path,"scene.jpeg"), cylinder_pano["rgba"].astype("uint8")[..., :3])
+        
+        # converter = Converter(output_height=pano_size[0],
+        #                     output_width=pano_size[1])
+        # os.makedirs(cylinder_path, exist_ok=True)
+        # depth = sphere_pano["depth"]
+        # depth[depth < 1.0] = 1.0
+        # depth = 255.0 / depth
+        # depth = depth.astype("uint8")
+        # for filename, pano in zip(["scene.jpeg", "actual_depth.png"], [sphere_pano["rgba"][..., :3], depth]):
+        #     if len(pano.shape) < 3:
+        #         pano = np.expand_dims(pano, axis=-1)
+        #     res = converter.convert(pano).numpy().astype("uint8")
+        #     imwrite(os.path.join(cylinder_path,filename), res)
 
         disparity_map, layers = generate_mpi(os.path.join(cylinder_path, "scene.jpeg"))
         imwrite(os.path.join(cylinder_path, "predicted_depth.png"), disparity_map)
         os.makedirs("data/layers", exist_ok=True)
         for i, layer in enumerate(layers):
-            imageio.imsave(f"data/layers/layer_{i}.png", layer.numpy())
+            imageio.imsave(f"data/layers/layer_{i}.png", (layer* 255).astype("uint8"))
         os.makedirs("data/snapshots", exist_ok=True)
         for i,target in enumerate(targets):
-            imageio.imsave(f"data/snapshots/snapshot_{i}.png", extractor.create_snapshot(0,target))
+            imageio.imsave(f"data/snapshots/snapshot_{i}.png", extractor.create_snapshot(pano_index,target))
             
         extractor.close()
 
@@ -105,8 +115,8 @@ if __name__ == '__main__':
     habitat_renders = [imageio.imread(f"data/snapshots/snapshot_{i}.png")[..., :3] for i in range(0, len(targets))]
     
     # TODO: Find the change of coordinates that translates between Habitat and MCI Renderer
-    transform = Rotation.from_euler("y", 45, degrees=True).as_matrix()
-    targets = [ target @ transform.T for target in targets]
+    # transform = Rotation.from_euler("y", 45, degrees=True).as_matrix()
+    # targets = [ target @ transform.T for target in targets]
 
     # Create mci renders
     mci_renders = [render_image(img_size, texture_path, eye, target, sigma=sigma) for target in targets]
