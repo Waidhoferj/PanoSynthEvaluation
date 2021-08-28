@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     # Parameters
     # Will run Habitat, panorama conversion, and MPI model pipeline if True. Otherwise uses previously produced images.
-    should_generate_data = True
+    should_generate_data = False
     img_size = (512,512)
     pano_size = (img_size[0], img_size[0] * 4)
     pano_index = 3
@@ -115,8 +115,8 @@ if __name__ == '__main__':
     habitat_renders = [imageio.imread(f"data/snapshots/snapshot_{i}.png")[..., :3] for i in range(0, len(targets))]
     
     # TODO: Find the change of coordinates that translates between Habitat and MCI Renderer
-    # transform = Rotation.from_euler("y", 45, degrees=True).as_matrix()
-    # targets = [ target @ transform.T for target in targets]
+    transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
+    targets = [ target @ transform.T for target in targets]
 
     # Create mci renders
     mci_renders = [render_image(img_size, texture_path, eye, target, sigma=sigma) for target in targets]
