@@ -1,10 +1,12 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 import time
+import shutil
 
 import numpy as np
 import os
 from rendertools import *
+import glob
 
 from imageio import imwrite
 
@@ -22,6 +24,7 @@ import pysvn
 import requests
 import tarfile
 import matplotlib.pyplot as plt
+import json
 
 
 
@@ -45,20 +48,20 @@ if __name__ == '__main__':
 
     # Parameters
     # Will run Habitat, panorama conversion, and MPI model pipeline if True. Otherwise uses previously produced images.
-    should_generate_data = False
+    should_generate_data = True
     img_size = (512,512)
     pano_size = (img_size[0], img_size[0] * 4)
     pano_index = 3
-    # NOTE: This method of generating targets is temporarily used to find the change of coordinates matrix.
-    angles = np.linspace(0, 2* np.pi, 13) # angles to generate targets
-    targets = [np.array([np.sin(angle), 0, np.cos(angle)]) for angle in angles] # Look-at points
-    eye = np.zeros(3)
+    sample_count = 10
 
     check_dependencies()
     # Import after dependencies exist
     from generate_mpi import generate_mpi
-    os.makedirs(cylinder_path, exist_ok=True)
     if should_generate_data:
+        # Erase old data entries
+        if os.path.exists("data"):
+            shutil.rmtree("data")
+        os.makedirs(cylinder_path, exist_ok=True)
         extractor = CylinderExtractor(
             scene_path,
             img_size=(512, 2048),
@@ -73,28 +76,18 @@ if __name__ == '__main__':
         depth = depth.astype("uint8")
         imwrite(os.path.join(cylinder_path,"actual_depth.png"), depth)
         imwrite(os.path.join(cylinder_path,"scene.jpeg"), cylinder_pano["rgba"].astype("uint8")[..., :3])
-        
-        # converter = Converter(output_height=pano_size[0],
-        #                     output_width=pano_size[1])
-        # os.makedirs(cylinder_path, exist_ok=True)
-        # depth = sphere_pano["depth"]
-        # depth[depth < 1.0] = 1.0
-        # depth = 255.0 / depth
-        # depth = depth.astype("uint8")
-        # for filename, pano in zip(["scene.jpeg", "actual_depth.png"], [sphere_pano["rgba"][..., :3], depth]):
-        #     if len(pano.shape) < 3:
-        #         pano = np.expand_dims(pano, axis=-1)
-        #     res = converter.convert(pano).numpy().astype("uint8")
-        #     imwrite(os.path.join(cylinder_path,filename), res)
 
         disparity_map, layers = generate_mpi(os.path.join(cylinder_path, "scene.jpeg"))
         imwrite(os.path.join(cylinder_path, "predicted_depth.png"), disparity_map)
         os.makedirs("data/layers", exist_ok=True)
         for i, layer in enumerate(layers):
-            imageio.imsave(f"data/layers/layer_{i}.png", (layer* 255).astype("uint8"))
+            imageio.imsave(f"data/layers/layer_{i}.png", (layer.numpy()* 255).astype("uint8"))
         os.makedirs("data/snapshots", exist_ok=True)
-        for i,target in enumerate(targets):
-            imageio.imsave(f"data/snapshots/snapshot_{i}.png", extractor.create_snapshot(pano_index,target))
+        for i in range(10):
+            snapshot, pose = extractor.random_snapshot(pano_index)
+            with open(f"data/snapshots/pose_{i}.json", "w") as f:
+                json.dump(pose, f)
+            imageio.imsave(f"data/snapshots/snapshot_{i}.png", snapshot)
             
         extractor.close()
 
@@ -111,18 +104,26 @@ if __name__ == '__main__':
     actual_depth = imread(os.path.join(
         cylinder_path, 'actual_depth.png')).astype('float32')
     sigma = compute_sigma(predicted_depth, actual_depth)
-    
-    habitat_renders = [imageio.imread(f"data/snapshots/snapshot_{i}.png")[..., :3] for i in range(0, len(targets))]
-    
-    # TODO: Find the change of coordinates that translates between Habitat and MCI Renderer
+    # Load habitat snapshot renders
+    snapshotPaths = sorted(glob.glob("data/snapshots/*.png"))
+    habitat_renders = [imageio.imread(path)[..., :3] for path in snapshotPaths]
+
+    # Apply all coordinate transformations that align habitat to MCI to the `transform` matrix
     transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
-    targets = [ target @ transform.T for target in targets]
+    poses = []
+    posePaths = sorted(glob.glob("data/snapshots/*.json"))
+    for path in posePaths:
+        with open(path) as f:
+            p = json.load(f)
+            poses.append((p["eye"] @ transform.T, p["target"] @ transform.T, p["up"] @ transform.T))
 
     # Create mci renders
-    mci_renders = [render_image(img_size, texture_path, eye, target, sigma=sigma) for target in targets]
-    #plot ranges of sigmas based on the MSE
-    for angle, habitat_render, mci_render in zip(angles, habitat_renders, mci_renders):
+    mci_renders = [render_image(img_size, texture_path, eye, target, up=up, sigma=sigma) for eye, target,up in poses]
+    #compare renderer outputs
+    i = 0
+    for habitat_render, mci_render in zip(habitat_renders, mci_renders):
         image = np.concatenate([ habitat_render, mci_render], axis=1)
-        imwrite(f'data/renderer-comparison/comparison_{round(angle * 180 / np.pi)}.png', image)
+        imwrite(f'data/renderer-comparison/comparison_{i}.png', image)
         mse = ((mci_render - habitat_render)**2).mean(axis=None)
         print('MSE: ', mse)
+        i+=1
