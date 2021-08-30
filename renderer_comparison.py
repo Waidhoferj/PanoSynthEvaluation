@@ -16,29 +16,17 @@ from pathlib import Path
 from habitat.panorama_extractor import PanoExtractor
 from habitat.cylinder_extractor import CylinderExtractor
 from evaluation import render_image, compute_sigma
-import subprocess
-from habitat.convert import Converter 
 import imageio
-import subprocess
-import pysvn
-import requests
 import tarfile
 import matplotlib.pyplot as plt
 import json
 
+from utils import check_dependencies
 
 
 
-def check_dependencies():
-    if not os.path.exists("single_view_mpi"):
-        pysvn.Client()
-        # NOTE: svn is required for now :(
-        subprocess.call(["svn", "export", "--force", "https://github.com/google-research/google-research/trunk/single_view_mpi"])
-    if not os.path.exists("single_view_mpi_full_keras"):
-        url = "https://storage.googleapis.com/stereo-magnification-public-files/models/single_view_mpi_full_keras.tar.gz"
-        response = requests.get(url, stream=True)
-        file = tarfile.open(fileobj=response.raw, mode="r|gz")
-        file.extractall(path=".")
+
+
 
 if __name__ == '__main__':
     # Filepaths
@@ -71,8 +59,6 @@ if __name__ == '__main__':
 
         cylinder_pano = extractor.create_panorama(pano_index)
         depth = cylinder_pano["depth"]
-        depth[depth < 1.0] = 1.0
-        depth = 255.0 / depth
         depth = depth.astype("uint8")
         imwrite(os.path.join(cylinder_path,"actual_depth.png"), depth)
         imwrite(os.path.join(cylinder_path,"scene.jpeg"), cylinder_pano["rgba"].astype("uint8")[..., :3])

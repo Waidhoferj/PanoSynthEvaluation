@@ -69,14 +69,19 @@ class CylinderExtractor(ImageExtractor):
         poses = self.mode_to_data[self.mode.lower()]
         return [info[0] for info in poses[idx]]
 
-    def random_snapshot(self, index):
+    def random_snapshot(self, index, pitch_range=[45, 135], yaw_range=[0,360]):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
         - index: The index of the panorama in the main image
         returns the image and json describing the offset
         """
         cam_offset = np.random.uniform(-1, 1, 3)
-        target = cam_offset + np.random.uniform(-1, 1, 3)
+        pitch = np.random.uniform(*pitch_range) / 180.0 * np.pi
+        yaw = np.random.uniform(*yaw_range) / 180.0 * np.pi
+        x = np.cos(yaw) * np.sin(pitch)
+        y = np.cos(pitch)
+        z = np.sin(pitch) * np.sin(yaw)
+        target = cam_offset + np.array([x,y,z])
         return self.create_snapshot(index, target, cam_offset), {"eye": list(cam_offset), "target": list(target), "up": [0,1,0]}
 
     def create_snapshot(self, index, target, cam_offset=np.zeros(3)):
@@ -120,6 +125,8 @@ class CylinderExtractor(ImageExtractor):
             color.append(img["rgba"])
 
         depth = np.concatenate(depth, axis=1)
+        depth[depth < 1.0] = 1.0
+        depth = 255.0 / depth
         color = np.concatenate(color, axis=1)
         return {"depth": depth, "rgba": color}
 
