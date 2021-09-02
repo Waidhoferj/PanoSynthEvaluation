@@ -60,10 +60,10 @@ def main():
     elif args.data_dir and args.scene_dir:
         # Generate new data and run eval
         generate_scene_data(args.scene_dir, args.data_dir, args.num_locations, args.num_snapshots)
-        evaluate_scene_data(args.data_dir)
+        render_mci_snapshots(args.data_dir)
     else:
         # Run evaluation of provided data
-        evaluate_scene_data(args.data_dir)
+        render_mci_snapshots(args.data_dir)
     
     
 
@@ -89,7 +89,7 @@ def preexisting_path():
         {"name": "data_path", "type": "input", "message": "Path to testing data", "default": "./data", "validate" : lambda a: os.path.isdir(a) or f"'{a}' is not a valid directory."}
     ])
 
-    evaluate_scene_data(a["data_path"])
+    render_mci_snapshots(a["data_path"])
 
 def generate_scene_data(scene_path, output_path, location_count, snapshot_count):
     # Erase old data entries
@@ -132,7 +132,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
                     
         extractor.close()
 
-def evaluate_scene_data(data_path):
+def render_mci_snapshots(data_path):
     locations = [os.path.split(path)[0] for path in glob.glob(os.path.join(data_path, "*", "*", "actual_depth.png"))]
     for location in locations:
         # Calculate sigma
@@ -144,14 +144,11 @@ def evaluate_scene_data(data_path):
         actual_depth = imread(os.path.join(
             location, 'actual_depth.png')).astype('float32')
         sigma = compute_sigma(predicted_depth, actual_depth)
-        # Load habitat snapshot renders
-        snapshot_paths = sorted(glob.glob(os.path.join(location, "snapshots", "*.png")))
-        habitat_renders = [imageio.imread(path)[..., :3] for path in snapshot_paths]
 
         # Apply all coordinate transformations that align habitat to MCI to the `transform` matrix
         transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
         poses = []
-        pose_paths = sorted(glob.glob(os.path.join(location, "poses", "*.json"))) # TODO: sort on pose number instead of string (will fail for pose > 9)
+        pose_paths = sorted(glob.glob(os.path.join(location, "poses", "*.json"))) # TODO: sort on pose number instead of string (will fail for pose count > 10)
         for path in pose_paths:
             with open(path) as f:
                 p = json.load(f)
