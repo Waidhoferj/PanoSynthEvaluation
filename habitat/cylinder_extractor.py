@@ -27,7 +27,11 @@ class CylinderExtractor(ImageExtractor):
         sim_cfg = hsim.SimulatorConfiguration()
         sim_cfg.enable_physics = False
         sim_cfg.gpu_device_id = 0
-        sim_cfg.scene_id = settings["scene"]
+        if "glb" in scene_filepath:
+            sim_cfg.scene_id = settings["scene"]
+        elif "json" in scene_filepath:
+            sim_cfg.scene_dataset_config_file = settings["scene"]
+
 
         # define default sensor parameters (see src/esp/Sensor/Sensor.h)
         sensor_specs = []
@@ -69,13 +73,13 @@ class CylinderExtractor(ImageExtractor):
         poses = self.mode_to_data[self.mode.lower()]
         return [info[0] for info in poses[idx]]
 
-    def random_snapshot(self, index, pitch_range=[45, 135], yaw_range=[0,360]):
+    def random_snapshot(self, index, pitch_range=[90, 90], yaw_range=[0,360]):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
         - index: The index of the panorama in the main image
         returns the image and json describing the offset
         """
-        cam_offset = np.random.uniform(-1, 1, 3)
+        cam_offset = np.random.uniform(-0.5, 0.5, 3)
         pitch = np.random.uniform(*pitch_range) / 180.0 * np.pi
         yaw = np.random.uniform(*yaw_range) / 180.0 * np.pi
         x = np.cos(yaw) * np.sin(pitch)
@@ -230,7 +234,7 @@ def normalize(vec):
 
 
 if __name__ == "__main__":
-    scene_filepath = "habitat/scenes/skokloster-castle.glb"
+    scene_filepath = "habitat/scenes/test/versioned_data/replica_cad_dataset_1.0/replicaCAD.scene_dataset_config.json"
     extractor = CylinderExtractor(
         scene_filepath,
         img_size=(512, 2048),
