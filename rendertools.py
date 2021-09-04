@@ -68,12 +68,21 @@ class Mesh:
         glBindTexture(GL_TEXTURE_2D, self.textureID)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                     self.texture.shape[1], self.texture.shape[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, self.texture)
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGBA,
+            self.texture.shape[1],
+            self.texture.shape[0],
+            0,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            self.texture,
+        )
 
     def initializeVertexArray(self):
         """
-        Creates the VAO to store the VBOs for the mesh data and the index data, 
+        Creates the VAO to store the VBOs for the mesh data and the index data,
         """
         self.vertexArrayObject = glGenVertexArrays(1)
         glBindVertexArray(self.vertexArrayObject)
@@ -94,26 +103,28 @@ class Mesh:
         glActiveTexture(GL_TEXTURE0)
         glBindTexture(GL_TEXTURE_2D, self.textureID)
         glBindVertexArray(self.vertexArrayObject)
-        glDrawElements(GL_TRIANGLES, self.indices.size,
-                       GL_UNSIGNED_SHORT, None)
+        glDrawElements(GL_TRIANGLES, self.indices.size, GL_UNSIGNED_SHORT, None)
 
 
 class Cylinder(Mesh):
     def __init__(self, bottom, top, radius, texturepath, nsegments=1024):
-        thetarange = np.linspace(0, 2*np.pi, nsegments)
+        thetarange = np.linspace(0, 2 * np.pi, nsegments)
         self.vertices = []
         self.texCoords = []
         for theta in thetarange:
-            x = radius*np.cos(theta)
-            z = radius*np.sin(theta)
+            x = radius * np.cos(theta)
+            z = radius * np.sin(theta)
             self.vertices.append(np.array([x, bottom, z]))
             self.vertices.append(np.array([x, top, z]))
-            self.texCoords.append(np.array([theta/(2*np.pi), 0]))
-            self.texCoords.append(np.array([theta/(2*np.pi), 1]))
+            self.texCoords.append(np.array([theta / (2 * np.pi), 0]))
+            self.texCoords.append(np.array([theta / (2 * np.pi), 1]))
         self.indices = []
         for i in range(len(self.vertices)):
             self.indices.append(
-                np.array([i, (i+1) % len(self.vertices), (i+2) % len(self.vertices)]))
+                np.array(
+                    [i, (i + 1) % len(self.vertices), (i + 2) % len(self.vertices)]
+                )
+            )
         self.vertices = np.stack(self.vertices, axis=0).astype(np.float32)
         self.texCoords = np.stack(self.texCoords, axis=0).astype(np.float32)
         self.indices = np.stack(self.indices, axis=0).astype(np.uint16)
@@ -124,46 +135,58 @@ class Cylinder(Mesh):
 
 class MyCylinder(Mesh):
     def __init__(self, bottom, top, radius, texturepath, nsegments=1024):
-        thetarange = np.linspace(0, 2*np.pi, nsegments)
+        thetarange = np.linspace(0, 2 * np.pi, nsegments)
         self.vertices = []
         self.texCoords = []
         for theta in thetarange:
-            x = radius*np.sin(theta)
-            y = radius*np.cos(theta)
+            x = radius * np.sin(theta)
+            y = radius * np.cos(theta)
 
             self.vertices.append(np.array([x, y, top]))
             self.vertices.append(np.array([x, y, bottom]))
-            self.texCoords.append(np.array([theta/(2*np.pi), 0]))
-            self.texCoords.append(np.array([theta/(2*np.pi), 1]))
+            self.texCoords.append(np.array([theta / (2 * np.pi), 0]))
+            self.texCoords.append(np.array([theta / (2 * np.pi), 1]))
         self.indices = []
         for i in range(len(self.vertices)):
             self.indices.append(
-                np.array([i, (i+1) % len(self.vertices), (i+2) % len(self.vertices)]))
+                np.array(
+                    [i, (i + 1) % len(self.vertices), (i + 2) % len(self.vertices)]
+                )
+            )
         self.vertices = np.stack(self.vertices, axis=0).astype(np.float32)
         self.texCoords = np.stack(self.texCoords, axis=0).astype(np.float32)
-        #self.texCoords = np.rot90(self.texCoords, axes=(-2, -1))
+        # self.texCoords = np.rot90(self.texCoords, axes=(-2, -1))
         self.indices = np.stack(self.indices, axis=0).astype(np.uint16)
 
         self.texture = imread(texturepath)
 
-        #self.texture = np.rot90(self.texture, axes=(-2, -1))
+        # self.texture = np.rot90(self.texture, axes=(-2, -1))
+
 
 class Sphere(Mesh):
-    def __init__(self, radius: float, width_segments: int, height_segments: int, texturepath:str):
+    def __init__(
+        self, radius: float, width_segments: int, height_segments: int, texturepath: str
+    ):
         width_segments = np.max([width_segments, 3])
         height_segments = np.max([height_segments, 3])
         height_range = np.linspace(-np.pi, np.pi, height_segments + 1)
-        width_range = np.linspace(0, 2*np.pi, width_segments + 1)
+        width_range = np.linspace(0, 2 * np.pi, width_segments + 1)
         self.vertices = []
         self.normals = []
         self.texCoords = []
         self.indices = []
 
-        #Build Vertices
-        for v in np.linspace(0,1,height_segments + 1):
-            u_offset = 0.5 / width_segments if v == 0 else -0.5 / width_segments if v == 1 else 0
-            for u in np.linspace(0,1,width_segments + 1):
-                x = - radius * np.cos(u * 2 * np.pi) * np.sin(v * np.pi)
+        # Build Vertices
+        for v in np.linspace(0, 1, height_segments + 1):
+            u_offset = (
+                0.5 / width_segments
+                if v == 0
+                else -0.5 / width_segments
+                if v == 1
+                else 0
+            )
+            for u in np.linspace(0, 1, width_segments + 1):
+                x = -radius * np.cos(u * 2 * np.pi) * np.sin(v * np.pi)
                 y = radius * np.cos(v * np.pi)
                 z = radius * np.sin(u * 2 * np.pi) * np.sin(v * np.pi)
                 vertex = np.array([x, y, z])
@@ -172,42 +195,34 @@ class Sphere(Mesh):
                 self.normals.append(-vertex / np.linalg.norm(vertex))
                 self.texCoords.append(np.array([u + u_offset, v]))
         combinations = len(height_range) * len(width_range)
-        idx_grid = np.linspace(0, combinations - 1, combinations).astype(int).reshape(len(height_range), len(width_range))
+        idx_grid = (
+            np.linspace(0, combinations - 1, combinations)
+            .astype(int)
+            .reshape(len(height_range), len(width_range))
+        )
 
-
-        #Build indices
+        # Build indices
         for y in range(0, height_segments):
             for x in range(0, width_segments):
                 a = idx_grid[y][x + 1]
                 b = idx_grid[y][x]
                 c = idx_grid[y + 1][x]
                 d = idx_grid[y + 1][x + 1]
-                if y > 0: self.indices.append(np.array([a,b,d]))
-                if y != height_segments - 1: self.indices.append(np.array([b,c,d]))
+                if y > 0:
+                    self.indices.append(np.array([a, b, d]))
+                if y != height_segments - 1:
+                    self.indices.append(np.array([b, c, d]))
         self.vertices = np.array(self.vertices).astype(np.float32)
         self.normals = np.array(self.normals).astype(np.float32)
         self.texCoords = np.array(self.texCoords).astype(np.float32)
         self.indices = np.array(self.indices).astype(np.uint16)
         self.texture = imread(texturepath)
 
-        
-
-        
-                
-
-
-                
 
 class Plane(Mesh):
     def __init__(self, depth, texturepath):
-        self.vertices = [[-1, -1, -1],
-                         [1, -1, -1],
-                         [1, 1, -1],
-                         [-1, 1, -1]]
-        self.texCoords = [[0, 0],
-                          [1, 0],
-                          [1, 1],
-                          [0, 1]]
+        self.vertices = [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1]]
+        self.texCoords = [[0, 0], [1, 0], [1, 1], [0, 1]]
         self.indices = [[0, 1, 2], [2, 3, 0]]
         self.vertices = np.array(self.vertices).astype(np.float32)
         self.vertices *= depth
@@ -267,8 +282,12 @@ class Renderer:
                     strShaderType = "geometry"
                 elif shaderType is GL_FRAGMENT_SHADER:
                     strShaderType = "fragment"
-                raise RuntimeError("Compilation failure (" + strShaderType + " shader):\n" +
-                                   glGetShaderInfoLog(shaderObjects[-1]).decode('utf-8'))
+                raise RuntimeError(
+                    "Compilation failure ("
+                    + strShaderType
+                    + " shader):\n"
+                    + glGetShaderInfoLog(shaderObjects[-1]).decode("utf-8")
+                )
 
             glAttachShader(self.shaderProgram, shaderObjects[-1])
 
@@ -277,7 +296,9 @@ class Renderer:
 
         if status == GL_FALSE:
             raise RuntimeError(
-                "Link failure:\n" + glGetProgramInfoLog(self.shaderProgram).decode('utf-8'))
+                "Link failure:\n"
+                + glGetProgramInfoLog(self.shaderProgram).decode("utf-8")
+            )
 
         for shader in shaderObjects:
             glDetachShader(self.shaderProgram, shader)
@@ -302,8 +323,9 @@ class Renderer:
 
         glBindTexture(GL_TEXTURE_2D, self.renderedTexture)
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.width,
-                     self.height, 0, GL_RGB, GL_FLOAT, None)
+        glTexImage2D(
+            GL_TEXTURE_2D, 0, GL_RGB, self.width, self.height, 0, GL_RGB, GL_FLOAT, None
+        )
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
@@ -315,7 +337,8 @@ class Renderer:
         glBindRenderbuffer(GL_RENDERBUFFER, self.depthRenderbuffer)
 
         glRenderbufferStorage(
-            GL_RENDERBUFFER, GL_DEPTH_COMPONENT, self.width, self.height)
+            GL_RENDERBUFFER, GL_DEPTH_COMPONENT, self.width, self.height
+        )
 
         glBindRenderbuffer(GL_RENDERBUFFER, 0)
 
@@ -324,14 +347,17 @@ class Renderer:
         glBindFramebuffer(GL_FRAMEBUFFER, self.framebufferObject)
 
         glFramebufferTexture2D(
-            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.renderedTexture, 0)
+            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, self.renderedTexture, 0
+        )
 
         glFramebufferRenderbuffer(
-            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, self.depthRenderbuffer)
+            GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, self.depthRenderbuffer
+        )
 
         if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
             raise RuntimeError(
-                'Framebuffer binding failed, probably because your GPU does not support this FBO configuration.')
+                "Framebuffer binding failed, probably because your GPU does not support this FBO configuration."
+            )
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0)
 
@@ -346,7 +372,7 @@ class Renderer:
 
         glUseProgram(self.shaderProgram)
 
-        #glBindFramebuffer(GL_FRAMEBUFFER, self.framebufferObject)
+        # glBindFramebuffer(GL_FRAMEBUFFER, self.framebufferObject)
 
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClearDepth(1.0)
@@ -360,10 +386,10 @@ class Renderer:
         if self.offscreen:
             glPixelStorei(GL_PACK_ALIGNMENT, 1)
             glReadBuffer(GL_COLOR_ATTACHMENT0)
-            data = glReadPixels(0, 0, self.width, self.height,
-                                GL_RGB, GL_UNSIGNED_BYTE)
+            data = glReadPixels(0, 0, self.width, self.height, GL_RGB, GL_UNSIGNED_BYTE)
             rendering = np.frombuffer(data, dtype=np.uint8).reshape(
-                self.height, self.width, 3)
+                self.height, self.width, 3
+            )
 
             return np.flipud(rendering)
 
@@ -384,15 +410,15 @@ def lookAt(eye, center, up):
 
     T = np.eye(4)
     T[0:3, 3] = -eye
-    return M@T
+    return M @ T
 
 
 def perspective(fovy, aspect, zNear, zFar):
-    f = cotdg(fovy/2)
+    f = cotdg(fovy / 2)
     M = np.zeros((4, 4))
-    M[0, 0] = f/aspect
+    M[0, 0] = f / aspect
     M[1, 1] = f
-    M[2, 2] = (zFar+zNear)/(zNear-zFar)
-    M[2, 3] = (2*zFar*zNear)/(zNear-zFar)
+    M[2, 2] = (zFar + zNear) / (zNear - zFar)
+    M[2, 3] = (2 * zFar * zNear) / (zNear - zFar)
     M[3, 2] = -1
     return M

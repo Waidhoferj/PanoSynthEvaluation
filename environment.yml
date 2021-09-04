@@ -1,4 +1,4 @@
-name: pano-eval-test
+name: pano-eval
 channels:
   - aihabitat
   - conda-forge
@@ -142,4 +142,5 @@ dependencies:
       - werkzeug==2.0.1
       - wrapt==1.12.1
       - zipp==3.5.0
+      - pre-commit
 prefix: /usr/local/Caskroom/miniconda/base/envs/pano-eval

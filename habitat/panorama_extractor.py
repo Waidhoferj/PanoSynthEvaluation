@@ -34,16 +34,14 @@ class PanoExtractor(ImageExtractor):
             color_sensor_spec = habitat_sim.sensor.EquirectangularSensorSpec()
             color_sensor_spec.uuid = "color_sensor"
             color_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
-            color_sensor_spec.resolution = [
-                settings["height"], settings["width"]]
+            color_sensor_spec.resolution = [settings["height"], settings["width"]]
             color_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(color_sensor_spec)
 
             color_cam = habitat_sim.sensor.CameraSensorSpec()
             color_cam.uuid = "color_snapshot"
             color_cam.sensor_type = habitat_sim.SensorType.COLOR
-            color_cam.resolution = [
-                settings["height"], settings["height"]]
+            color_cam.resolution = [settings["height"], settings["height"]]
             color_cam.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(color_cam)
 
@@ -51,8 +49,7 @@ class PanoExtractor(ImageExtractor):
             depth_sensor_spec = habitat_sim.sensor.EquirectangularSensorSpec()
             depth_sensor_spec.uuid = "depth_sensor"
             depth_sensor_spec.sensor_type = habitat_sim.SensorType.DEPTH
-            depth_sensor_spec.resolution = [
-                settings["height"], settings["width"]]
+            depth_sensor_spec.resolution = [settings["height"], settings["width"]]
             depth_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(depth_sensor_spec)
 
@@ -73,11 +70,14 @@ class PanoExtractor(ImageExtractor):
         """
         cam_offset = np.random.uniform(-1, 1, 3)
         target = cam_offset + np.random.uniform(-1, 1, 3)
-        return self.create_snapshot(index, target, cam_offset), {"eye": list(cam_offset), "target": list(target), "up": [0,1,0]}
+        return (
+            self.create_snapshot(index, target, cam_offset),
+            {"eye": list(cam_offset), "target": list(target), "up": [0, 1, 0]},
+        )
 
     def create_snapshot(self, index, target, cam_offset=np.zeros(3)):
         """
-            Generates an square snapshot based on look at coordinates relative to the 
+            Generates an square snapshot based on look at coordinates relative to the
             center of the panorama at `index`.
             `index`: index of panorama corresponding to PanoExtractor()[index].
             `target`: position that the camera looks at.
@@ -100,8 +100,7 @@ class PanoExtractor(ImageExtractor):
         new_state.position = point
 
         up = np.array([0.0, 1.0, 0.0])
-        mat = lookAt(np.array([0.0, 0.0, 0.0]), lap -
-                     point, up)
+        mat = lookAt(np.array([0.0, 0.0, 0.0]), lap - point, up)
         new_state.rotation = qt.from_rotation_matrix(mat[:3, :3])
         self.sim.agents[0].set_state(new_state)
         obs = self.sim.get_sensor_observations()
@@ -126,7 +125,7 @@ def lookAt(eye, center, up):
 
     T = np.eye(4)
     T[3, 0:3] = -eye
-    return M@T
+    return M @ T
 
 
 def normalize(vec):
@@ -139,11 +138,12 @@ if __name__ == "__main__":
         ["scenes/skokloster-castle.glb", "scenes/apartment_1.glb"],
         img_size=(512, 1024),
         output=["rgba", "depth"],
-        shuffle=False)
+        shuffle=False,
+    )
     os.makedirs("tmp", exist_ok=True)
     for i, obs in enumerate(extractor[:6]):
         plt.imsave(f"./tmp/pano_{i}.png", obs["rgba"])
-        plt.imsave(f"./tmp/depth_{i}.png", obs["depth"], cmap='Greys')
+        plt.imsave(f"./tmp/depth_{i}.png", obs["depth"], cmap="Greys")
 
     for i in range(6):
         img, pose = extractor.random_snapshot(0)

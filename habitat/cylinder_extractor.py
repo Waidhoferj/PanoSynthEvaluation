@@ -16,7 +16,8 @@ from scipy.ndimage import convolve
 class CylinderExtractor(ImageExtractor):
     def _config_sim(self, scene_filepath, img_size):
         settings = {
-            "width": img_size[0] * 4,  # Ensure that the cylinder is the right resolution.
+            "width": img_size[0]
+            * 4,  # Ensure that the cylinder is the right resolution.
             "height": img_size[0],
             "scene": scene_filepath,  # Scene path
             "default_agent": 0,
@@ -34,15 +35,13 @@ class CylinderExtractor(ImageExtractor):
         elif "json" in scene_filepath:
             sim_cfg.scene_dataset_config_file = settings["scene"]
 
-
         # define default sensor parameters (see src/esp/Sensor/Sensor.h)
         sensor_specs = []
         if settings["color_sensor"]:
             color_sensor_spec = habitat_sim.sensor.CameraSensorSpec()
             color_sensor_spec.uuid = "color_sensor"
             color_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
-            color_sensor_spec.resolution = [
-                settings["height"], settings["height"]]
+            color_sensor_spec.resolution = [settings["height"], settings["height"]]
             color_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(color_sensor_spec)
 
@@ -50,8 +49,7 @@ class CylinderExtractor(ImageExtractor):
             depth_sensor_spec = habitat_sim.sensor.CameraSensorSpec()
             depth_sensor_spec.uuid = "depth_sensor"
             depth_sensor_spec.sensor_type = habitat_sim.SensorType.DEPTH
-            depth_sensor_spec.resolution = [
-                settings["height"], settings["height"]]
+            depth_sensor_spec.resolution = [settings["height"], settings["height"]]
             depth_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(depth_sensor_spec)
 
@@ -64,7 +62,7 @@ class CylinderExtractor(ImageExtractor):
         poses = self.mode_to_data[self.mode.lower()]
         return [info[0] for info in poses[idx]]
 
-    def random_snapshot(self, index, pitch_range=[90, 90], yaw_range=[0,360]):
+    def random_snapshot(self, index, pitch_range=[90, 90], yaw_range=[0, 360]):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
         - index: The index of the panorama in the main image
@@ -76,12 +74,15 @@ class CylinderExtractor(ImageExtractor):
         x = np.cos(yaw) * np.sin(pitch)
         y = np.cos(pitch)
         z = np.sin(pitch) * np.sin(yaw)
-        target = cam_offset + np.array([x,y,z])
-        return self.create_snapshot(index, target, cam_offset), {"eye": list(cam_offset), "target": list(target), "up": [0,1,0]}
+        target = cam_offset + np.array([x, y, z])
+        return (
+            self.create_snapshot(index, target, cam_offset),
+            {"eye": list(cam_offset), "target": list(target), "up": [0, 1, 0]},
+        )
 
     def create_snapshot(self, index, target, cam_offset=np.zeros(3)):
         """
-            Generates an square snapshot based on look at coordinates relative to the 
+            Generates an square snapshot based on look at coordinates relative to the
             center of the panorama at `index`.
             `index`: index of panorama corresponding to PanoExtractor()[index].
             `target`: position that the camera looks at.
@@ -89,7 +90,7 @@ class CylinderExtractor(ImageExtractor):
         """
 
         poses = self.mode_to_data[self.mode.lower()]
-        pos, _, fp = poses[index*self.img_size[1]]
+        pos, _, fp = poses[index * self.img_size[1]]
 
         # Only switch scene if it is different from the last one accessed
         if fp != self.cur_fp:
@@ -104,30 +105,28 @@ class CylinderExtractor(ImageExtractor):
         new_state.position = point
 
         up = np.array([0.0, 1.0, 0.0])
-        mat = lookAt(np.array([0.0, 0.0, 0.0]), lap -
-                     point, up)
+        mat = lookAt(np.array([0.0, 0.0, 0.0]), lap - point, up)
         new_state.rotation = qt.from_rotation_matrix(mat[:3, :3])
         self.sim.agents[0].set_state(new_state)
         obs = self.sim.get_sensor_observations()
         return obs["color_sensor"]
 
-    def validate_panorama(self,color_pano: dict) -> bool:
-        color_kernel = np.ones((200,200))
-        grayscale_img = np.mean(color_pano[...,:3], axis=-1)
+    def validate_panorama(self, color_pano: dict) -> bool:
+        color_kernel = np.ones((200, 200))
+        grayscale_img = np.mean(color_pano[..., :3], axis=-1)
         has_missing_wall = convolve(grayscale_img, color_kernel).min() == 0.0
         return not has_missing_wall
 
-
-    def create_panorama(self,index:int):
+    def create_panorama(self, index: int):
         pano_width = self.img_size[1]
 
         def extract_center(img: np.ndarray):
             width = img.shape[1]
-            return np.mean(img[:, width //2:width //2+2], axis=1)
-        
-        depth =[]
+            return np.mean(img[:, width // 2 : width // 2 + 2], axis=1)
+
+        depth = []
         color = []
-        for img in self[pano_width*index:(index+1)*pano_width]:
+        for img in self[pano_width * index : (index + 1) * pano_width]:
             depth.append(extract_center(img["depth"]))
             color.append(extract_center(img["rgba"]))
         color = np.stack(color, axis=1).astype("uint8")
@@ -137,14 +136,14 @@ class CylinderExtractor(ImageExtractor):
         return {"depth": depth, "rgba": color}
 
 
-
 # Pose extractor code
 @registry.register_pose_extractor(name="cylinder_pose_extractor")
 class CylinderPoseExtractor(PoseExtractor):
-    def __init__(self,
-                 topdown_views: List[Tuple[str, str, Tuple[float32, float32, float32]]],
-                 meters_per_pixel: float = 0.1
-                 ) -> None:
+    def __init__(
+        self,
+        topdown_views: List[Tuple[str, str, Tuple[float32, float32, float32]]],
+        meters_per_pixel: float = 0.1,
+    ) -> None:
         super().__init__(topdown_views, meters_per_pixel)
 
     def extract_poses(
@@ -172,8 +171,7 @@ class CylinderPoseExtractor(PoseExtractor):
         poses = []
         for row, col in gridpoints:
             position = (col, cam_height, row)
-            points_of_interest = self._panorama_extraction(
-                position, view, dist)
+            points_of_interest = self._panorama_extraction(position, view, dist)
             poses.extend([(position, poi, fp) for poi in points_of_interest])
         # Returns poses in 3D cartesian coordinate system
         return poses
@@ -190,14 +188,13 @@ class CylinderPoseExtractor(PoseExtractor):
             pos, look_at_point, filepath = pose
 
             new_pos = start_point + np.array(pos) * self.meters_per_pixel
-            new_lap = start_point + \
-                np.array(look_at_point) * self.meters_per_pixel
+            new_lap = start_point + np.array(look_at_point) * self.meters_per_pixel
             displacement = new_lap - new_pos
 
-            rot = qt.from_rotation_matrix(lookAt(np.array([0, 0, 0]),
-                                                 displacement, np.array([0, 1, 0]))[:3,:3])
-            converted_poses.append(
-                (new_pos, rot, filepath))
+            rot = qt.from_rotation_matrix(
+                lookAt(np.array([0, 0, 0]), displacement, np.array([0, 1, 0]))[:3, :3]
+            )
+            converted_poses.append((new_pos, rot, filepath))
 
         return converted_poses
 
@@ -207,9 +204,10 @@ class CylinderPoseExtractor(PoseExtractor):
         neighbors = []
         radius = 2
         for angle in np.linspace(np.pi * 2, 0, 2048, endpoint=False):
-            lap = np.array([np.sin(angle)* radius, 0, np.cos(angle) * radius]) + point
+            lap = np.array([np.sin(angle) * radius, 0, np.cos(angle) * radius]) + point
             neighbors.append(lap.tolist())
         return neighbors
+
 
 def lookAt(eye, center, up):
     F = center - eye
@@ -229,7 +227,7 @@ def lookAt(eye, center, up):
 
     T = np.eye(4)
     T[3, 0:3] = -eye
-    return M@T
+    return M @ T
 
 
 def normalize(vec):
@@ -243,7 +241,8 @@ if __name__ == "__main__":
         img_size=(512, 1609),
         output=["rgba", "depth"],
         pose_extractor_name="cylinder_pose_extractor",
-        shuffle=False)
+        shuffle=False,
+    )
     index = 2
     img = extractor.create_panorama(index)
     plt.imsave("test.png", img["rgba"])
