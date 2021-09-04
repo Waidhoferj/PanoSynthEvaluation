@@ -1,3 +1,5 @@
+from utils import check_dependencies, monkeypatch_ctypes
+monkeypatch_ctypes()
 from PyInquirer import style_from_dict, prompt
 
 from rendertools import *
