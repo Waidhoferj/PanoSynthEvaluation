@@ -4,8 +4,11 @@ import tensorflow as tf
 from single_view_mpi.libs import mpi
 from single_view_mpi.libs import nets
 from imageio import imwrite
+from functools import lru_cache
 import glob
-def generate_mpi(input_path):
+
+@lru_cache(maxsize=1)
+def create_model():
     input1 = tf.keras.Input(shape=(None, None, 3))
     output = nets.mpi_from_image(input1)
 
@@ -14,8 +17,11 @@ def generate_mpi(input_path):
     # Our full model, trained on RealEstate10K.
     model.load_weights(
         'single_view_mpi_full_keras/single_view_mpi_keras_weights').expect_partial()
-    print('Weights loaded.')
+    return model
+
+def generate_mpi(input_path):
     
+    model = create_model()
     input_rgb = tf.image.decode_image(tf.io.read_file(input_path), dtype=tf.float32)
 
     # input_rgb = tf.image.resize(input_rgb, (output_height,output_width), method='area')

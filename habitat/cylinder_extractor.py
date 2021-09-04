@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from habitat_sim.utils.data import ImageExtractor, PoseExtractor
 import quaternion as qt
 import json
+import magnum as mn
+from scipy.ndimage import convolve
 
 
 class CylinderExtractor(ImageExtractor):
@@ -40,27 +42,16 @@ class CylinderExtractor(ImageExtractor):
             color_sensor_spec.uuid = "color_sensor"
             color_sensor_spec.sensor_type = habitat_sim.SensorType.COLOR
             color_sensor_spec.resolution = [
-                settings["height"], 1]
-            color_sensor_spec.hfov = 360.0 / settings["width"]
+                settings["height"], settings["height"]]
             color_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(color_sensor_spec)
-
-
-            color_cam = habitat_sim.sensor.CameraSensorSpec()
-            color_cam.uuid = "color_snapshot"
-            color_cam.sensor_type = habitat_sim.SensorType.COLOR
-            color_cam.resolution = [
-                settings["height"], settings["height"]]
-            color_cam.postition = [0.0, settings["sensor_height"], 0.0]
-            sensor_specs.append(color_cam)
 
         if settings["depth_sensor"]:
             depth_sensor_spec = habitat_sim.sensor.CameraSensorSpec()
             depth_sensor_spec.uuid = "depth_sensor"
             depth_sensor_spec.sensor_type = habitat_sim.SensorType.DEPTH
             depth_sensor_spec.resolution = [
-                settings["height"], 1]
-            depth_sensor_spec.hfov = 360.0 / settings["width"]
+                settings["height"], settings["height"]]
             depth_sensor_spec.postition = [0.0, settings["sensor_height"], 0.0]
             sensor_specs.append(depth_sensor_spec)
 
@@ -98,7 +89,7 @@ class CylinderExtractor(ImageExtractor):
         """
 
         poses = self.mode_to_data[self.mode.lower()]
-        pos, _, fp = poses[index*2048]
+        pos, _, fp = poses[index*self.img_size[1]]
 
         # Only switch scene if it is different from the last one accessed
         if fp != self.cur_fp:
@@ -118,20 +109,31 @@ class CylinderExtractor(ImageExtractor):
         new_state.rotation = qt.from_rotation_matrix(mat[:3, :3])
         self.sim.agents[0].set_state(new_state)
         obs = self.sim.get_sensor_observations()
-        return obs["color_snapshot"]
+        return obs["color_sensor"]
+
+    def validate_panorama(self,color_pano: dict) -> bool:
+        color_kernel = np.ones((200,200))
+        grayscale_img = np.mean(color_pano[...,:3], axis=-1)
+        has_missing_wall = convolve(grayscale_img, color_kernel).min() == 0.0
+        return not has_missing_wall
+
 
     def create_panorama(self,index:int):
-        img_size = 2048
+        pano_width = self.img_size[1]
+
+        def extract_center(img: np.ndarray):
+            width = img.shape[1]
+            return np.mean(img[:, width //2:width //2+2], axis=1)
+        
         depth =[]
         color = []
-        for img in self[img_size*index:(index+1)*img_size]:
-            depth.append(img["depth"])
-            color.append(img["rgba"])
-
-        depth = np.concatenate(depth, axis=1)
+        for img in self[pano_width*index:(index+1)*pano_width]:
+            depth.append(extract_center(img["depth"]))
+            color.append(extract_center(img["rgba"]))
+        color = np.stack(color, axis=1).astype("uint8")
+        depth = np.stack(depth, axis=1)
         depth[depth < 1.0] = 1.0
         depth = 255.0 / depth
-        color = np.concatenate(color, axis=1)
         return {"depth": depth, "rgba": color}
 
 
@@ -203,8 +205,9 @@ class CylinderPoseExtractor(PoseExtractor):
         self, point: Tuple[int, int, int], view: ndarray, dist: int
     ) -> List[Tuple[int, int]]:
         neighbors = []
+        radius = 2
         for angle in np.linspace(np.pi * 2, 0, 2048, endpoint=False):
-            lap = np.array([np.sin(angle)* 3, 0, np.cos(angle) * 3]) + point
+            lap = np.array([np.sin(angle)* radius, 0, np.cos(angle) * radius]) + point
             neighbors.append(lap.tolist())
         return neighbors
 
@@ -237,7 +240,7 @@ if __name__ == "__main__":
     scene_filepath = "habitat/scenes/test/versioned_data/replica_cad_dataset_1.0/replicaCAD.scene_dataset_config.json"
     extractor = CylinderExtractor(
         scene_filepath,
-        img_size=(512, 2048),
+        img_size=(512, 1609),
         output=["rgba", "depth"],
         pose_extractor_name="cylinder_pose_extractor",
         shuffle=False)
@@ -246,5 +249,3 @@ if __name__ == "__main__":
     plt.imsave("test.png", img["rgba"])
 
     extractor.close()
-
-

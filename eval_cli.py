@@ -12,10 +12,6 @@ from habitat.panorama_extractor import PanoExtractor
 from habitat.cylinder_extractor import CylinderExtractor
 from evaluation import render_image, compute_sigma
 import imageio
-import subprocess
-import pysvn
-import requests
-import tarfile
 import matplotlib.pyplot as plt
 import json
 import shutil
@@ -106,7 +102,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             output=["rgba", "depth"],
             pose_extractor_name="cylinder_pose_extractor",
             shuffle=False)
-        total_locations = len(extractor) / 2048
+        total_locations = len(extractor) / extractor.img_size[1]
         num_locations = min(total_locations, location_count)
         location_indices = np.round(np.linspace(0, total_locations, num_locations, endpoint=False)).astype("int")
         for loc_i, pano_i in enumerate(location_indices):
@@ -156,6 +152,8 @@ def render_mci_snapshots(data_path):
 
         # Create mci renders
         out_dir = os.path.join(location, "predicted-snapshots")
+        if os.path.exists(out_dir):
+            shutil.rmtree(out_dir)
         os.makedirs(out_dir)
         mci_renders = (render_image((512,512), os.path.join(location, "layers", "layer_%d.png"), eye, target, up=up, sigma=sigma) for eye, target,up in poses)
         for i, render in enumerate(mci_renders):

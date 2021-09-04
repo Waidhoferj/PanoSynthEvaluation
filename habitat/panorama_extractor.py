@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from habitat_sim.utils.data import ImageExtractor, PoseExtractor
 import quaternion as qt
 import json
+import os
 
 
 class PanoExtractor(ImageExtractor):
@@ -139,6 +140,7 @@ if __name__ == "__main__":
         img_size=(512, 1024),
         output=["rgba", "depth"],
         shuffle=False)
+    os.makedirs("tmp", exist_ok=True)
     for i, obs in enumerate(extractor[:6]):
         plt.imsave(f"./tmp/pano_{i}.png", obs["rgba"])
         plt.imsave(f"./tmp/depth_{i}.png", obs["depth"], cmap='Greys')
