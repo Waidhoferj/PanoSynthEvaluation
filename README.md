@@ -8,6 +8,7 @@ Create an environment and install dependencies with [`conda`](https://docs.conda
 
 ```bash
 conda env create --file environment.yml
+pre-commit install
 ```
 
 Generate evaluation data using the CLI
