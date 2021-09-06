@@ -1,21 +1,14 @@
 from utils import check_dependencies, monkeypatch_ctypes
 
 monkeypatch_ctypes()
-from PyInquirer import style_from_dict, prompt
-
+from PyInquirer import prompt
 from rendertools import *
 import glob
-
 from imageio import imwrite
-
-import tensorflow as tf
 from scipy.spatial.transform import Rotation
-from pathlib import Path
-from habitat.panorama_extractor import PanoExtractor
 from habitat.cylinder_extractor import CylinderExtractor
 from evaluation import render_image, compute_sigma
 import imageio
-import matplotlib.pyplot as plt
 import json
 import shutil
 from utils import check_dependencies
@@ -139,9 +132,9 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
     os.makedirs(output_path)
-    scene_paths = glob.glob(os.path.join(scene_path, "*.glb")) + glob.glob(
-        os.path.join(scene_path, "*.ply")
-    )
+    scene_paths = glob.glob(
+        os.path.join(scene_path, "**", "*.glb"), recursive=True
+    ) + glob.glob(os.path.join(scene_path, "**" "*.ply"), recursive=True)
     for scene in scene_paths:
         scene_name = os.path.split(scene)[1].split(".")[0]
         os.makedirs(os.path.join(output_path, scene_name))
