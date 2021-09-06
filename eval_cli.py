@@ -139,7 +139,9 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
     os.makedirs(output_path)
-    scene_paths = glob.glob(os.path.join(scene_path, "*.glb"))
+    scene_paths = glob.glob(os.path.join(scene_path, "*.glb")) + glob.glob(
+        os.path.join(scene_path, "*.ply")
+    )
     for scene in scene_paths:
         scene_name = os.path.split(scene)[1].split(".")[0]
         os.makedirs(os.path.join(output_path, scene_name))
