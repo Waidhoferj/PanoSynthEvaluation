@@ -2,15 +2,12 @@ from typing import List, Tuple
 import habitat_sim
 import numpy as np
 from numpy import float32, ndarray
-
 from habitat_sim import bindings as hsim
 from habitat_sim import registry as registry
 import matplotlib.pyplot as plt
 from habitat_sim.utils.data import ImageExtractor, PoseExtractor
 import quaternion as qt
-import json
-import magnum as mn
-from scipy.ndimage import convolve
+from scipy.ndimage import convolve, binary_erosion
 
 
 class CylinderExtractor(ImageExtractor):
@@ -69,6 +66,7 @@ class CylinderExtractor(ImageExtractor):
         returns the image and json describing the offset
         """
         cam_offset = np.random.uniform(-0.5, 0.5, 3)
+        cam_offset[1] = 0.0  # Random point on x-z plane only.
         pitch = np.random.uniform(*pitch_range) / 180.0 * np.pi
         yaw = np.random.uniform(*yaw_range) / 180.0 * np.pi
         x = np.cos(yaw) * np.sin(pitch)
@@ -131,7 +129,7 @@ class CylinderExtractor(ImageExtractor):
             color.append(extract_center(img["rgba"]))
         color = np.stack(color, axis=1).astype("uint8")
         depth = np.stack(depth, axis=1)
-        depth[depth < 1.0] = 1.0
+        depth = depth + (1.0 - depth.min())
         depth = 255.0 / depth
         return {"depth": depth, "rgba": color}
 
@@ -159,13 +157,14 @@ class CylinderPoseExtractor(PoseExtractor):
             width // dist - 1,
             height // dist - 1,
         )
+        floorplan = binary_erosion(view, iterations=2)
         # groups of xz points sampled from accessible areas in the scene
         gridpoints = []
         # Scene reachability mask with bounds away from walls.
         for h in range(n_gridpoints_height):
             for w in range(n_gridpoints_width):
                 point = (dist + h * dist, dist + w * dist)
-                if self._valid_point(*point, view):
+                if self._valid_point(*point, floorplan):
                     gridpoints.append(point)
         # Generate a pose for each side of the cubemap
         poses = []

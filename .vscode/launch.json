@@ -12,7 +12,7 @@
       "console": "integratedTerminal",
       "args": [
         "--scene-dir",
-        "habitat/scenes",
+        "habitat/scene_datasets",
         "--data-dir",
         "data",
         "--num-locations",
