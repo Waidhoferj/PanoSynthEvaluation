@@ -65,7 +65,7 @@ class CylinderExtractor(ImageExtractor):
         - index: The index of the panorama in the main image
         returns the image and json describing the offset
         """
-        cam_offset = np.random.uniform(-0.5, 0.5, 3)
+        cam_offset = np.random.uniform(-0.1, 0.1, 3)
         cam_offset[1] = 0.0  # Random point on x-z plane only.
         pitch = np.random.uniform(*pitch_range) / 180.0 * np.pi
         yaw = np.random.uniform(*yaw_range) / 180.0 * np.pi
@@ -234,7 +234,7 @@ def normalize(vec):
 
 
 if __name__ == "__main__":
-    scene_filepath = "habitat/scenes/test/versioned_data/replica_cad_dataset_1.0/replicaCAD.scene_dataset_config.json"
+    scene_filepath = "test/apartment_0/habitat/mesh_semantic.ply"
     extractor = CylinderExtractor(
         scene_filepath,
         img_size=(512, 1609),

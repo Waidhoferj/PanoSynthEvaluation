@@ -8,6 +8,13 @@
       "name": "Python: Current File",
       "type": "python",
       "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Evaluation CLI",
+      "type": "python",
+      "request": "launch",
       "program": "eval_cli.py",
       "console": "integratedTerminal",
       "args": [

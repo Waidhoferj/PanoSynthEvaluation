@@ -20,7 +20,7 @@ def compute_sigma(pred_disp, actual_disp):
     zero_mask = (actual_disp != 0) & (pred_disp != 0)
     actual_disp = np.log(actual_disp[zero_mask])
     pred_disp = np.log(pred_disp[zero_mask])
-    sigma = np.exp(np.mean(pred_disp - actual_disp))
+    sigma = np.exp(np.median(pred_disp - actual_disp))
     return sigma
 
 

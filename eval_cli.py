@@ -21,9 +21,7 @@ generate_mpi = None
 def main():
     global generate_mpi
 
-    parser = ArgumentParser(
-        description="Convert spherical/equirectangular panoramas to cylindrical format"
-    )
+    parser = ArgumentParser(description="Generate an eval dataset for PanoSynthVR")
 
     parser.add_argument(
         "--scene-dir", help="directory containing .glb files for habitat rendering"
