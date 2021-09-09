@@ -1,6 +1,9 @@
+"""
+Functions that construct the MCI environment and extract images from it.
+"""
+
 from OpenGL.GL import *
 from OpenGL.GLUT import *
-import time
 
 import numpy as np
 import os
@@ -8,15 +11,17 @@ import re
 
 from rendertools import *
 
-from imageio import imwrite
 
 import json
-import tensorflow as tf
 
 import argparse
+from typing import Tuple
 
 
 def compute_sigma(pred_disp, actual_disp):
+    """
+    Computes an average scale different between true and predicted disparity.
+    """
     zero_mask = (actual_disp != 0) & (pred_disp != 0)
     actual_disp = np.log(actual_disp[zero_mask])
     pred_disp = np.log(pred_disp[zero_mask])
@@ -30,8 +35,22 @@ window = None
 
 
 def render_image(
-    image_size, texture_path, eye, target, up=np.array([0, 1, 0]), sigma=1
+    image_size: Tuple[int, int],
+    texture_path: str,
+    eye: np.ndarray,
+    target: np.ndarray,
+    up=np.array([0, 1, 0]),
+    sigma=1,
 ):
+    """
+    Generates an snapshot using the MCI renderer
+    - `image_size`: height by width of the image
+    - `texture_path`: templated string that points to the MCI layer textures
+    - `eye`: location of the camera
+    - `target`: center of the camera's view
+    - `up`: up direction from the camera's perpective
+    - `sigma`: scaling factor applied to the concentric cylinders
+    """
     global renderer
     global window
     height, width = image_size

@@ -6,7 +6,7 @@ import requests
 
 def check_dependencies():
     """
-    Installs dependencies for single view mpi model from google research.
+    Installs dependencies for single view mpi model from google-research.
     """
     if not os.path.exists("single_view_mpi"):
         pysvn.Client()

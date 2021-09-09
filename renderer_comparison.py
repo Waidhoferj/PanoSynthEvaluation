@@ -1,6 +1,10 @@
+"""
+TEST FILE
+Compares the coordinate systems of the MCI renderer and the CylinderExtractor
+"""
+
 from OpenGL.GL import *
 from OpenGL.GLUT import *
-import time
 import shutil
 
 import numpy as np
@@ -10,15 +14,10 @@ import glob
 
 from imageio import imwrite
 
-import tensorflow as tf
 from scipy.spatial.transform import Rotation
-from pathlib import Path
-from habitat.panorama_extractor import PanoExtractor
 from habitat.cylinder_extractor import CylinderExtractor
-from evaluation import render_image, compute_sigma
+from render_mci import render_image, compute_sigma
 import imageio
-import tarfile
-import matplotlib.pyplot as plt
 import json
 
 from utils import check_dependencies

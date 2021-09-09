@@ -23,9 +23,9 @@
         "--data-dir",
         "data",
         "--num-locations",
-        "3",
+        "5",
         "--num-snapshots",
-        "1"
+        "5"
       ]
     }
   ]

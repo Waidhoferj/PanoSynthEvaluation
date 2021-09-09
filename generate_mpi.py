@@ -1,3 +1,8 @@
+"""
+Model that generates textures for the MCI renderer.
+Adapted from https://github.com/google-research/google-research/tree/master/single_view_mpi
+"""
+
 import numpy as np
 import os
 import tensorflow as tf
@@ -6,10 +11,14 @@ from single_view_mpi.libs import nets
 from imageio import imwrite
 from functools import lru_cache
 import glob
+from typing import Tuple, List
 
 
 @lru_cache(maxsize=1)
 def create_model():
+    """
+    Loads TensorFlow MPI model weights and caches model
+    """
     input1 = tf.keras.Input(shape=(None, None, 3))
     output = nets.mpi_from_image(input1)
 
@@ -22,7 +31,11 @@ def create_model():
     return model
 
 
-def generate_mpi(input_path):
+def generate_mpi(input_path: str) -> Tuple[np.ndarray, List[tf.Tensor]]:
+    """
+    Runs cylindrical panorama through the MPI model to generate cylinder textures and a predicted disparity map.
+    - `input_path`: filepath to cylindrical scene panorama
+    """
 
     model = create_model()
     input_rgb = tf.image.decode_image(tf.io.read_file(input_path), dtype=tf.float32)
@@ -55,23 +68,9 @@ def generate_mpi(input_path):
 
     return disparity_map, layers
 
-    my_output_path = os.path.join(output_path, os.path.basename(path).split(".")[0])
-    os.makedirs(my_output_path, exist_ok=True)
-
-    imwrite(f"{my_output_path}/depth_map.png", disparity[..., 0][:, padding:-padding])
-
-    os.makedirs(f"{my_output_path}/layers", exist_ok=True)
-
-    for i in range(32):
-        print(f"{my_output_path}/layers/layer_{i}.png")
-        imwrite(
-            f"{my_output_path}/layers/layer_{i}.png",
-            layers[i].numpy()[:, padding:-padding],
-        )
-
 
 if __name__ == "__main__":
-    from configargparse import ArgumentParser
+    from argparse import ArgumentParser
     import glob
     import os
 

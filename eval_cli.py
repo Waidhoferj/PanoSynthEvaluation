@@ -1,3 +1,7 @@
+"""
+Provides primary user interface to the evaluation pipeline.
+"""
+
 from utils import check_dependencies, monkeypatch_ctypes
 
 monkeypatch_ctypes()
@@ -7,7 +11,7 @@ import glob
 from imageio import imwrite
 from scipy.spatial.transform import Rotation
 from habitat.cylinder_extractor import CylinderExtractor
-from evaluation import render_image, compute_sigma
+from render_mci import render_image, compute_sigma
 import imageio
 import json
 import shutil
@@ -126,6 +130,13 @@ def preexisting_path():
 
 
 def generate_scene_data(scene_path, output_path, location_count, snapshot_count):
+    """
+    Generates new panoramas and snapshots from habitat-sim that serve as the source of truth for evaluation.
+    - `scene_path`: the directory holding the scene files.
+    - `output_path`: the output directory for the generated data.
+    - `location_count`: number of panoramas per scene.
+    - `snapshot_count`: number of snapshots per location.
+    """
     # Erase old data entries
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
@@ -174,7 +185,9 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             os.makedirs(os.path.join(location_path, "snapshots"))
             os.makedirs(os.path.join(location_path, "poses"))
             for i in range(snapshot_count):
-                snapshot, pose = extractor.random_snapshot(pano_i)
+                snapshot, pose = extractor.random_snapshot(
+                    pano_i, offset_range=[-0.5, 0.5]
+                )
                 with open(
                     os.path.join(location_path, "poses", f"pose_{i}.json"), "w"
                 ) as f:
@@ -188,6 +201,10 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
 
 
 def render_mci_snapshots(data_path):
+    """
+    Generates MCI renders from the habitat-sim poses.
+    - `data_path`: directory holding the habitat-sim renders.
+    """
     locations = [
         os.path.split(path)[0]
         for path in glob.glob(os.path.join(data_path, "*", "*", "actual_depth.png"))

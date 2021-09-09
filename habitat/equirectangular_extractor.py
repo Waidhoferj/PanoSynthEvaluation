@@ -1,16 +1,21 @@
-from typing import List, Tuple
+"""
+DEPRECATED
+Image extractor which uses the equirectangular sensor to extract a spherical panorama.
+Abandoned due to issues with sphere -> cylinder conversion.
+"""
+
 import habitat_sim
 import numpy as np
 from habitat_sim import bindings as hsim
 from habitat_sim import registry as registry
 import matplotlib.pyplot as plt
-from habitat_sim.utils.data import ImageExtractor, PoseExtractor
+from habitat_sim.utils.data import ImageExtractor
 import quaternion as qt
 import json
 import os
 
 
-class PanoExtractor(ImageExtractor):
+class EquirectangularExtractor(ImageExtractor):
     def _config_sim(self, scene_filepath, img_size):
         settings = {
             "width": img_size[1],  # Spatial resolution of the observations
@@ -79,7 +84,7 @@ class PanoExtractor(ImageExtractor):
         """
             Generates an square snapshot based on look at coordinates relative to the
             center of the panorama at `index`.
-            `index`: index of panorama corresponding to PanoExtractor()[index].
+            `index`: index of panorama corresponding to EquirectangularExtractor()[index].
             `target`: position that the camera looks at.
             `cam_offset`: camera offset from the center of the panorama.
         """
@@ -134,7 +139,7 @@ def normalize(vec):
 
 if __name__ == "__main__":
     scene_filepath = "scenes/skokloster-castle.glb"
-    extractor = PanoExtractor(
+    extractor = EquirectangularExtractor(
         ["scenes/skokloster-castle.glb", "scenes/apartment_1.glb"],
         img_size=(512, 1024),
         output=["rgba", "depth"],

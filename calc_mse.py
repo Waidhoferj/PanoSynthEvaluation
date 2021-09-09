@@ -1,3 +1,6 @@
+"""
+Calculates mse for all snapshots in the data folder.
+"""
 from argparse import ArgumentParser
 import os
 import glob
@@ -23,7 +26,7 @@ if __name__ == "__main__":
                 plt.imread(actual_path)[..., :3],
                 plt.imread(predicted_path)[..., :3],
             )
-            mse = np.mean(actual - predicted)
+            mse = np.mean((actual - predicted) ** 2)
             mse_vals.append(mse)
 
     for mse in mse_vals:

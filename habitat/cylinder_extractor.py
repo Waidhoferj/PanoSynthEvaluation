@@ -14,7 +14,7 @@ class CylinderExtractor(ImageExtractor):
     def _config_sim(self, scene_filepath, img_size):
         settings = {
             "width": img_size[0]
-            * 4,  # Ensure that the cylinder is the right resolution.
+            * 4,  # Ensure that the cylindrical panorama has a 4:1 aspect ratio.
             "height": img_size[0],
             "scene": scene_filepath,  # Scene path
             "default_agent": 0,
@@ -59,16 +59,24 @@ class CylinderExtractor(ImageExtractor):
         poses = self.mode_to_data[self.mode.lower()]
         return [info[0] for info in poses[idx]]
 
-    def random_snapshot(self, index, pitch_range=[90, 90], yaw_range=[0, 360]):
+    def random_snapshot(
+        self, index, pitch_range=[90, 90], yaw_range=[0, 360], offset_range=[-0.1, 0.1]
+    ):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
-        - index: The index of the panorama in the main image
+        - `index`: the index of the panorama in the main image
         returns the image and json describing the offset
+        - `pitch_range`: the range of possible degrees of rotation around the x axis (vertical range aka phi)
+        - `yaw_range`: the range of possible values of rotation around the y axis (horizontal range aka theta)
+        - `offset_range`: the range of possible translation values in the x and z dimension.
         """
-        cam_offset = np.random.uniform(-0.1, 0.1, 3)
+        if not hasattr(self, "random_gen"):
+            seed = 200
+            self.random_gen = np.random.default_rng(seed)
+        cam_offset = self.random_gen.uniform(*offset_range, 3)
         cam_offset[1] = 0.0  # Random point on x-z plane only.
-        pitch = np.random.uniform(*pitch_range) / 180.0 * np.pi
-        yaw = np.random.uniform(*yaw_range) / 180.0 * np.pi
+        pitch = self.random_gen.uniform(*pitch_range) / 180.0 * np.pi
+        yaw = self.random_gen.uniform(*yaw_range) / 180.0 * np.pi
         x = np.cos(yaw) * np.sin(pitch)
         y = np.cos(pitch)
         z = np.sin(pitch) * np.sin(yaw)
@@ -80,11 +88,11 @@ class CylinderExtractor(ImageExtractor):
 
     def create_snapshot(self, index, target, cam_offset=np.zeros(3)):
         """
-            Generates an square snapshot based on look at coordinates relative to the
-            center of the panorama at `index`.
-            `index`: index of panorama corresponding to PanoExtractor()[index].
-            `target`: position that the camera looks at.
-            `cam_offset`: camera offset from the center of the panorama.
+        Generates an square snapshot based on look at coordinates relative to the
+        center of the panorama at `index`.
+        - `index`: index of panorama corresponding to PanoExtractor()[index].
+        - `target`: position that the camera looks at.
+        - `cam_offset`: camera offset from the center of the panorama.
         """
 
         poses = self.mode_to_data[self.mode.lower()]
@@ -110,12 +118,19 @@ class CylinderExtractor(ImageExtractor):
         return obs["color_sensor"]
 
     def validate_panorama(self, color_pano: dict) -> bool:
+        """
+        Determines whether a panorama is valid by testing for a dark tear in the scene.
+        """
         color_kernel = np.ones((200, 200))
         grayscale_img = np.mean(color_pano[..., :3], axis=-1)
         has_missing_wall = convolve(grayscale_img, color_kernel).min() == 0.0
         return not has_missing_wall
 
-    def create_panorama(self, index: int):
+    def create_panorama(self, index: int) -> dict:
+        """
+        Generates a cylindrical panorama from the center seam of square snapshots.
+        - `index`: the index of the panorama in the set of sampled scene locations.
+        """
         pano_width = self.img_size[1]
 
         def extract_center(img: np.ndarray):
@@ -166,7 +181,7 @@ class CylinderPoseExtractor(PoseExtractor):
                 point = (dist + h * dist, dist + w * dist)
                 if self._valid_point(*point, floorplan):
                     gridpoints.append(point)
-        # Generate a pose for each side of the cubemap
+        # Generate a pose for vertical slices of the cylindrical panorama
         poses = []
         for row, col in gridpoints:
             position = (col, cam_height, row)
@@ -202,7 +217,9 @@ class CylinderPoseExtractor(PoseExtractor):
     ) -> List[Tuple[int, int]]:
         neighbors = []
         radius = 2
-        for angle in np.linspace(np.pi * 2, 0, 2048, endpoint=False):
+        width = 2048
+        # one pose for each pixel column in the panoramic image
+        for angle in np.linspace(np.pi * 2, 0, width, endpoint=False):
             lap = np.array([np.sin(angle) * radius, 0, np.cos(angle) * radius]) + point
             neighbors.append(lap.tolist())
         return neighbors
