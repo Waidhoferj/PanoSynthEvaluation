@@ -4,7 +4,7 @@ import numpy as np
 from numpy import float32, ndarray
 from habitat_sim import bindings as hsim
 from habitat_sim import registry as registry
-import matplotlib.pyplot as plt
+from imageio import imwrite
 from habitat_sim.utils.data import ImageExtractor, PoseExtractor
 import quaternion as qt
 from scipy.ndimage import convolve, binary_erosion
@@ -172,7 +172,7 @@ class CylinderPoseExtractor(PoseExtractor):
             width // dist - 1,
             height // dist - 1,
         )
-        floorplan = binary_erosion(view, iterations=2)
+        floorplan = binary_erosion(view, iterations=3)
         # groups of xz points sampled from accessible areas in the scene
         gridpoints = []
         # Scene reachability mask with bounds away from walls.
@@ -261,6 +261,6 @@ if __name__ == "__main__":
     )
     index = 2
     img = extractor.create_panorama(index)
-    plt.imsave("test.png", img["rgba"])
+    imwrite("test.png", img["rgba"])
 
     extractor.close()

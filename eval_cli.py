@@ -175,12 +175,12 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             disparity_map, layers = generate_mpi(
                 os.path.join(location_path, "scene.jpeg")
             )
+            layers = (np.array(layers) * 255.0).astype("uint8")
             imwrite(os.path.join(location_path, "predicted_depth.png"), disparity_map)
             os.makedirs(os.path.join(location_path, "layers"))
             for i, layer in enumerate(layers):
                 imageio.imsave(
-                    os.path.join(location_path, "layers", f"layer_{i}.png"),
-                    (layer.numpy() * 255).astype("uint8"),
+                    os.path.join(location_path, "layers", f"layer_{i}.png"), layer
                 )
             os.makedirs(os.path.join(location_path, "snapshots"))
             os.makedirs(os.path.join(location_path, "poses"))

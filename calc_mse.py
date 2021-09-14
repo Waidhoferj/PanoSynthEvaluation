@@ -17,9 +17,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     mse_vals = []
     for location in glob.iglob(os.path.join(args.data_dir, "**", "location_*")):
-        actual_paths = glob.iglob(os.path.join(location, "snapshots", "*.png"))
-        predicted_paths = glob.iglob(
-            os.path.join(location, "predicted-snapshots", "*.png")
+        actual_paths = sorted(glob.glob(os.path.join(location, "snapshots", "*.png")))
+        predicted_paths = sorted(
+            glob.glob(os.path.join(location, "predicted-snapshots", "*.png"))
         )
         for actual_path, predicted_path in zip(actual_paths, predicted_paths):
             actual, predicted = (
