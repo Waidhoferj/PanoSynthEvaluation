@@ -110,6 +110,7 @@ def generate_path():
         int(a["location_count"]),
         int(a["snapshot_count"]),
     )
+    render_mci_snapshots(a["output_path"])
 
 
 def preexisting_path():
@@ -154,7 +155,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             pose_extractor_name="cylinder_pose_extractor",
             shuffle=False,
         )
-        total_locations = len(extractor) / extractor.img_size[1]
+        total_locations = int(len(extractor) / extractor.img_size[1])
         num_locations = min(total_locations, location_count)
         location_indices = np.round(
             np.linspace(0, total_locations, num_locations, endpoint=False)
@@ -205,11 +206,12 @@ def render_mci_snapshots(data_path):
     Generates MCI renders from the habitat-sim poses.
     - `data_path`: directory holding the habitat-sim renders.
     """
-    locations = [
+    locations = (
         os.path.split(path)[0]
-        for path in glob.glob(os.path.join(data_path, "*", "*", "actual_depth.png"))
-    ]
+        for path in glob.iglob(os.path.join(data_path, "*", "*", "actual_depth.png"))
+    )
     for location in locations:
+        print(f"MCI Renderer: Rendering poses for {location}")
         # Calculate sigma
         predicted_depth = imread(os.path.join(location, "predicted_depth.png")).astype(
             "float32"
@@ -225,7 +227,6 @@ def render_mci_snapshots(data_path):
             "float32"
         )
         sigma = compute_sigma(predicted_depth, actual_depth)
-
         # Apply all coordinate transformations that align habitat to MCI to the `transform` matrix
         transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
         poses = []

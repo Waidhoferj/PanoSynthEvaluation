@@ -5,3 +5,6 @@ __pycache__
 single_view_mpi
 single_view_mpi_full_keras
 test
+
+scenes
+scene_datasets

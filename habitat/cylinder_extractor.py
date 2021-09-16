@@ -18,7 +18,7 @@ class CylinderExtractor(ImageExtractor):
             "height": img_size[0],
             "scene": scene_filepath,  # Scene path
             "default_agent": 0,
-            "sensor_height": 1.5,  # Height of sensors in meters
+            "sensor_height": 0.1,  # Height of sensors in meters
             "color_sensor": True,  # RGBA sensor
             "depth_sensor": True,  # Depth sensor
             "silent": True,
@@ -172,7 +172,7 @@ class CylinderPoseExtractor(PoseExtractor):
             width // dist - 1,
             height // dist - 1,
         )
-        floorplan = binary_erosion(view, iterations=3)
+        floorplan = binary_erosion(view, iterations=4)
         # groups of xz points sampled from accessible areas in the scene
         gridpoints = []
         # Scene reachability mask with bounds away from walls.

@@ -81,6 +81,7 @@ def render_image(
     mvp_matrix = proj_matrix @ view_matrix
 
     produced_image = renderer.render(mvp_matrix)
+    renderer.destroy()
     return produced_image
 
 

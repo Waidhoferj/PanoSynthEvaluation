@@ -2,6 +2,7 @@ import pysvn
 import subprocess
 import os
 import requests
+import tarfile
 
 
 def check_dependencies():

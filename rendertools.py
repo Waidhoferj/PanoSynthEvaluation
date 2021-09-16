@@ -1,7 +1,7 @@
 from OpenGL.GL import *
 from OpenGL.GLUT import *
 import numpy as np
-from imageio import imread, imwrite
+from imageio import imread
 from scipy.special import cotdg
 
 vert = """
@@ -105,6 +105,15 @@ class Mesh:
         glBindVertexArray(self.vertexArrayObject)
         glDrawElements(GL_TRIANGLES, self.indices.size, GL_UNSIGNED_SHORT, None)
 
+    def destroy(self):
+        """
+        Disposes of all bound memory buffers.
+        """
+        glDeleteTextures(1, self.textureID)
+        glDeleteBuffers(1, self.texCoordBufferObject)
+        glDeleteBuffers(1, self.indexBufferObject)
+        glDeleteVertexArrays(1, self.vertexArrayObject)
+
 
 class Cylinder(Mesh):
     def __init__(self, bottom, top, radius, texturepath, nsegments=1024):
@@ -131,36 +140,6 @@ class Cylinder(Mesh):
 
         self.texture = imread(texturepath)
         self.texture = np.flipud(self.texture)
-
-
-class MyCylinder(Mesh):
-    def __init__(self, bottom, top, radius, texturepath, nsegments=1024):
-        thetarange = np.linspace(0, 2 * np.pi, nsegments)
-        self.vertices = []
-        self.texCoords = []
-        for theta in thetarange:
-            x = radius * np.sin(theta)
-            y = radius * np.cos(theta)
-
-            self.vertices.append(np.array([x, y, top]))
-            self.vertices.append(np.array([x, y, bottom]))
-            self.texCoords.append(np.array([theta / (2 * np.pi), 0]))
-            self.texCoords.append(np.array([theta / (2 * np.pi), 1]))
-        self.indices = []
-        for i in range(len(self.vertices)):
-            self.indices.append(
-                np.array(
-                    [i, (i + 1) % len(self.vertices), (i + 2) % len(self.vertices)]
-                )
-            )
-        self.vertices = np.stack(self.vertices, axis=0).astype(np.float32)
-        self.texCoords = np.stack(self.texCoords, axis=0).astype(np.float32)
-        # self.texCoords = np.rot90(self.texCoords, axes=(-2, -1))
-        self.indices = np.stack(self.indices, axis=0).astype(np.uint16)
-
-        self.texture = imread(texturepath)
-
-        # self.texture = np.rot90(self.texture, axes=(-2, -1))
 
 
 class Sphere(Mesh):
@@ -392,6 +371,16 @@ class Renderer:
             )
 
             return np.flipud(rendering)
+
+    def destroy(self):
+        """
+        Handles deallocation of all used resources.
+        """
+        glDeleteTextures(1, self.renderedTexture)
+        glDeleteRenderbuffers(1, self.depthRenderbuffer)
+        glDeleteFramebuffers(1, self.framebufferObject)
+        for mesh in self.meshes:
+            mesh.destroy()
 
 
 def normalize(vec):
