@@ -3,6 +3,7 @@ from OpenGL.GLUT import *
 import numpy as np
 from imageio import imread
 from scipy.special import cotdg
+import cv2
 
 vert = """
 #version 330
@@ -105,7 +106,7 @@ class Mesh:
         glBindVertexArray(self.vertexArrayObject)
         glDrawElements(GL_TRIANGLES, self.indices.size, GL_UNSIGNED_SHORT, None)
 
-    def destroy(self):
+    def __del__(self):
         """
         Disposes of all bound memory buffers.
         """
@@ -140,6 +141,68 @@ class Cylinder(Mesh):
 
         self.texture = imread(texturepath)
         self.texture = np.flipud(self.texture)
+
+
+class DepthCylinder(Mesh):
+    def __init__(
+        self,
+        height,
+        radius,
+        texturepath,
+        disparitypath,
+        nsegments=None,
+        nvertsegments=None,
+    ):
+        self.texture = imread(texturepath)
+        self.texture = np.flipud(self.texture)
+        disparity = imread(disparitypath).astype("float32") / 255.0
+        disparity = np.flipud(disparity)
+        H, W = disparity.shape
+        if nsegments is not None:
+            W = nsegments
+        if nvertsegments is not None:
+            H = nvertsegments
+        disparity = cv2.resize(disparity, (W, H), interpolation=cv2.INTER_LINEAR)
+        bottom = -height / 2
+        top = height / 2
+        self.disparity = None
+        self.vertices = []
+        self.texCoords = []
+        self.indices = []
+        n = 0
+        for y in range(H - 1):
+            v1 = y / (H - 1)
+            v2 = (y + 1) / (H - 1)
+            for x in range(W):
+                u1 = x / (W - 1)
+                u2 = ((x + 1) % W) / (W - 1)
+                depth11 = 1.0 / disparity[y, x]
+                depth12 = 1.0 / disparity[y + 1, x]
+                depth21 = 1.0 / disparity[y, (x + 1) % W]
+                depth22 = 1.0 / disparity[y + 1, (x + 1) % W]
+                theta1 = u1 * 2 * np.pi
+                theta2 = u2 * 2 * np.pi
+                y1 = bottom + v1 * (top - bottom)
+                y2 = bottom + v2 * (top - bottom)
+                x1 = radius * np.cos(theta1)
+                z1 = radius * np.sin(theta1)
+                x2 = radius * np.cos(theta2)
+                z2 = radius * np.sin(theta2)
+
+                self.vertices.append(np.array([x1, y1, z1]) * depth11)
+                self.texCoords.append(np.array([u1, v1]))
+                self.vertices.append(np.array([x1, y2, z1]) * depth12)
+                self.texCoords.append(np.array([u1, v2]))
+                self.vertices.append(np.array([x2, y1, z2]) * depth21)
+                self.texCoords.append(np.array([u2, v1]))
+                self.vertices.append(np.array([x2, y2, z2]) * depth22)
+                self.texCoords.append(np.array([u2, v2]))
+                self.indices.append(np.array([n, n + 1, n + 2]))
+                self.indices.append(np.array([n + 1, n + 2, n + 3]))
+                n += 4
+        self.vertices = np.stack(self.vertices, axis=0).astype(np.float32)
+        self.texCoords = np.stack(self.texCoords, axis=0).astype(np.float32)
+        self.indices = np.stack(self.indices, axis=0).astype(np.uint32)
 
 
 class Sphere(Mesh):
@@ -213,11 +276,15 @@ class Plane(Mesh):
 
 
 class Renderer:
+    window = None
+
     def __init__(self, meshes, width, height, offscreen=False):
         self.meshes = meshes
         self.width = width
         self.height = height
         self.offscreen = offscreen
+        if not Renderer.window:
+            self._create_window()
 
         shaderDict = {GL_VERTEX_SHADER: vert, GL_FRAGMENT_SHADER: frag}
 
@@ -240,6 +307,18 @@ class Renderer:
             mesh.initializeVertexBuffer()
             mesh.initializeVertexArray()
             mesh.initializeTexture()
+
+    def _create_window(self):
+        glutInit()
+        glutInitDisplayMode(GLUT_RGBA | GLUT_3_2_CORE_PROFILE)
+        glutInitWindowSize(self.width, self.height)
+        glutInitWindowPosition(0, 0)
+        Renderer.window = glutCreateWindow("window")
+        glutHideWindow(self.window)
+
+    def _destroy_window(self):
+        if Renderer.window:
+            glutDestroyWindow(Renderer.window)
 
     def initializeShaders(self, shaderDict):
         """
@@ -372,15 +451,13 @@ class Renderer:
 
             return np.flipud(rendering)
 
-    def destroy(self):
+    def __del__(self):
         """
         Handles deallocation of all used resources.
         """
         glDeleteTextures(1, self.renderedTexture)
         glDeleteRenderbuffers(1, self.depthRenderbuffer)
         glDeleteFramebuffers(1, self.framebufferObject)
-        for mesh in self.meshes:
-            mesh.destroy()
 
 
 def normalize(vec):
