@@ -12,7 +12,7 @@ from imageio import imwrite
 from scipy.spatial.transform import Rotation
 from habitat.cylinder_extractor import CylinderExtractor
 from mci_renderer import MCIRenderer, compute_sigma
-from mesh_renderer import DepthMeshRenderer
+from mesh_render.render_mesh import render_mesh
 import imageio
 import json
 import shutil
@@ -270,18 +270,19 @@ def render_predicted_snapshots(data_path):
         if os.path.exists(mesh_dir):
             shutil.rmtree(mesh_dir)
         os.makedirs(mesh_dir)
-
-        mesh_renderer = DepthMeshRenderer(
-            (512, 512),
-            os.path.join(location, "scene.jpeg"),
-            os.path.join(location, "predicted_disparity.png"),
-        )
         mesh_renders = (
-            mesh_renderer.render_image(eye, target, up=up) for eye, target, up in poses
+            render_mesh(
+                (512, 512),
+                os.path.join(location, "scene.jpeg"),
+                os.path.join(location, "predicted_disparity.png"),
+                eye,
+                target,
+                up=up,
+            )
+            for eye, target, up in poses
         )
         for i, render in enumerate(mesh_renders):
             imageio.imsave(os.path.join(mesh_dir, f"snapshot_{i}.png"), render)
-        del mesh_renderer
 
 
 if __name__ == "__main__":
