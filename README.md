@@ -38,16 +38,18 @@ The pipeline outputs all data into the `/data` folder.
 data
 └── apartment_1
     └── location_0
-        ├── actual_depth.png
+        ├── actual_disparity.png
+        ├── predicted_disparity.png
+        ├── scene.jpeg
         ├── layers
         │   ├── layer_0.png
         │   └── layer_31.png
         ├── poses
         │   └── pose_0.json
-        ├── predicted_depth.png
-        ├── predicted_snapshots
+        ├── mci-snapshots
         │   └── snapshot_0.png
-        ├── scene.jpeg
+        ├── mesh-snapshots
+        │   └── snapshot_0.png
         └── snapshots
             └── snapshot_0.png
 ```
@@ -56,8 +58,8 @@ data
 
 - The data folder contains different scenes, with names corresponding to the `.glb` files stored in `scene-dir`
 - Each scene contains a list of locations based off of `num-locations`
-- Locations contain panoramic images of the actual depth, predicted depth and scene, where the depths are disparity maps of the location
-- Snapshots are square images with a random offset from the center of the panorama and a randomized look at point. Every snapshot render from habitat has a corresponding predicted-snapshot render from the MCI. Both renders use the information in the poses folder to correctly position the camera.
+- Locations contain panoramic images of the actual disparity, predicted disparity and scene, where the disparities are disparity maps of the location
+- Snapshots are square images with a random offset from the center of the panorama and a randomized look at point. Every snapshot render from habitat has a corresponding render, which are the predicted images. `mesh-snapshots`, `mci-snapshots` and `snapshots` use the information in the poses folder to capture an image with each renderer.
 
 ## Resources
 

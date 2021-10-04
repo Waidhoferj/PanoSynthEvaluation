@@ -11,7 +11,8 @@ import glob
 from imageio import imwrite
 from scipy.spatial.transform import Rotation
 from habitat.cylinder_extractor import CylinderExtractor
-from render_mci import render_image, compute_sigma
+from mci_renderer import MCIRenderer, compute_sigma
+from mesh_render.render_mesh import render_mesh
 import imageio
 import json
 import shutil
@@ -66,10 +67,10 @@ def main():
         generate_scene_data(
             args.scene_dir, args.data_dir, args.num_locations, args.num_snapshots
         )
-        render_mci_snapshots(args.data_dir)
+        render_predicted_snapshots(args.data_dir)
     else:
         # Run evaluation of provided data
-        render_mci_snapshots(args.data_dir)
+        render_predicted_snapshots(args.data_dir)
 
 
 def generate_path():
@@ -110,7 +111,7 @@ def generate_path():
         int(a["location_count"]),
         int(a["snapshot_count"]),
     )
-    render_mci_snapshots(a["output_path"])
+    render_predicted_snapshots(a["output_path"])
 
 
 def preexisting_path():
@@ -127,7 +128,7 @@ def preexisting_path():
         ]
     )
 
-    render_mci_snapshots(a["data_path"])
+    render_predicted_snapshots(a["data_path"])
 
 
 def generate_scene_data(scene_path, output_path, location_count, snapshot_count):
@@ -166,7 +167,8 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             cylinder_pano = extractor.create_panorama(pano_i)
             depth = cylinder_pano["depth"]
             imwrite(
-                os.path.join(location_path, "actual_depth.png"), depth.astype("uint8")
+                os.path.join(location_path, "actual_disparity.png"),
+                depth.astype("uint8"),
             )
             imwrite(
                 os.path.join(location_path, "scene.jpeg"),
@@ -177,7 +179,9 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
                 os.path.join(location_path, "scene.jpeg")
             )
             layers = (np.array(layers) * 255.0).astype("uint8")
-            imwrite(os.path.join(location_path, "predicted_depth.png"), disparity_map)
+            imwrite(
+                os.path.join(location_path, "predicted_disparity.png"), disparity_map
+            )
             os.makedirs(os.path.join(location_path, "layers"))
             for i, layer in enumerate(layers):
                 imageio.imsave(
@@ -201,32 +205,34 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
         extractor.close()
 
 
-def render_mci_snapshots(data_path):
+def render_predicted_snapshots(data_path):
     """
-    Generates MCI renders from the habitat-sim poses.
+    Generates predition renders from the habitat-sim poses.
     - `data_path`: directory holding the habitat-sim renders.
     """
     locations = (
         os.path.split(path)[0]
-        for path in glob.iglob(os.path.join(data_path, "*", "*", "actual_depth.png"))
+        for path in glob.iglob(
+            os.path.join(data_path, "*", "*", "actual_disparity.png")
+        )
     )
     for location in locations:
-        print(f"MCI Renderer: Rendering poses for {location}")
+        print(f"Rendering poses for {location}")
         # Calculate sigma
-        predicted_depth = imread(os.path.join(location, "predicted_depth.png")).astype(
-            "float32"
-        )
+        predicted_disparity = imread(
+            os.path.join(location, "predicted_disparity.png")
+        ).astype("float32")
         # interpolate depths that are far too close together
-        predicted_depth = (
-            (predicted_depth - predicted_depth.min())
-            / (predicted_depth.max() - predicted_depth.min())
+        predicted_disparity = (
+            (predicted_disparity - predicted_disparity.min())
+            / (predicted_disparity.max() - predicted_disparity.min())
             * 255
         )
 
-        actual_depth = imread(os.path.join(location, "actual_depth.png")).astype(
-            "float32"
-        )
-        sigma = compute_sigma(predicted_depth, actual_depth)
+        actual_disparity = imread(
+            os.path.join(location, "actual_disparity.png")
+        ).astype("float32")
+        sigma = compute_sigma(predicted_disparity, actual_disparity)
         # Apply all coordinate transformations that align habitat to MCI to the `transform` matrix
         transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
         poses = []
@@ -245,23 +251,38 @@ def render_mci_snapshots(data_path):
                 )
 
         # Create mci renders
-        out_dir = os.path.join(location, "predicted-snapshots")
-        if os.path.exists(out_dir):
-            shutil.rmtree(out_dir)
-        os.makedirs(out_dir)
+        mci_dir = os.path.join(location, "mci-snapshots")
+        if os.path.exists(mci_dir):
+            shutil.rmtree(mci_dir)
+        os.makedirs(mci_dir)
+        mci_renderer = MCIRenderer(
+            (512, 512), os.path.join(location, "layers", "layer_%d.png"), sigma=sigma
+        )
         mci_renders = (
-            render_image(
+            mci_renderer.render_image(eye, target, up=up) for eye, target, up in poses
+        )
+        for i, render in enumerate(mci_renders):
+            imageio.imsave(os.path.join(mci_dir, f"snapshot_{i}.png"), render)
+        del mci_renderer
+
+        # Create mesh renders
+        mesh_dir = os.path.join(location, "mesh-snapshots")
+        if os.path.exists(mesh_dir):
+            shutil.rmtree(mesh_dir)
+        os.makedirs(mesh_dir)
+        mesh_renders = (
+            render_mesh(
                 (512, 512),
-                os.path.join(location, "layers", "layer_%d.png"),
+                os.path.join(location, "scene.jpeg"),
+                os.path.join(location, "predicted_disparity.png"),
                 eye,
                 target,
                 up=up,
-                sigma=sigma,
             )
             for eye, target, up in poses
         )
-        for i, render in enumerate(mci_renders):
-            imageio.imsave(os.path.join(out_dir, f"snapshot_{i}.png"), render)
+        for i, render in enumerate(mesh_renders):
+            imageio.imsave(os.path.join(mesh_dir, f"snapshot_{i}.png"), render)
 
 
 if __name__ == "__main__":
