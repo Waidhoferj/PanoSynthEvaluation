@@ -1,4 +1,5 @@
 """
+DEPRECATED
 TEST FILE
 Compares the coordinate systems of the MCI renderer and the CylinderExtractor
 """

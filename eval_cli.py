@@ -165,11 +165,8 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             location_path = os.path.join(output_path, scene_name, f"location_{loc_i}")
             os.makedirs(location_path)
             cylinder_pano = extractor.create_panorama(pano_i)
-            depth = cylinder_pano["depth"]
-            imwrite(
-                os.path.join(location_path, "actual_disparity.png"),
-                depth.astype("uint8"),
-            )
+            depth = cylinder_pano["disparity"]
+            np.save(os.path.join(location_path, "actual_disparity.npy"), depth)
             imwrite(
                 os.path.join(location_path, "scene.jpeg"),
                 cylinder_pano["rgba"].astype("uint8")[..., :3],
@@ -178,10 +175,10 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             disparity_map, layers = generate_mpi(
                 os.path.join(location_path, "scene.jpeg")
             )
-            layers = (np.array(layers) * 255.0).astype("uint8")
-            imwrite(
-                os.path.join(location_path, "predicted_disparity.png"), disparity_map
+            np.save(
+                os.path.join(location_path, "predicted_disparity.npy"), disparity_map
             )
+            layers = (np.array(layers) * 255.0).astype("uint8")
             os.makedirs(os.path.join(location_path, "layers"))
             for i, layer in enumerate(layers):
                 imageio.imsave(
@@ -191,7 +188,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             os.makedirs(os.path.join(location_path, "poses"))
             for i in range(snapshot_count):
                 snapshot, pose = extractor.random_snapshot(
-                    pano_i, offset_range=[-0.5, 0.5]
+                    pano_i, offset_range=[0, 0.5]
                 )
                 with open(
                     os.path.join(location_path, "poses", f"pose_{i}.json"), "w"
@@ -213,32 +210,22 @@ def render_predicted_snapshots(data_path):
     locations = (
         os.path.split(path)[0]
         for path in glob.iglob(
-            os.path.join(data_path, "*", "*", "actual_disparity.png")
+            os.path.join(data_path, "*", "*", "actual_disparity.npy")
         )
     )
     for location in locations:
         print(f"Rendering poses for {location}")
         # Calculate sigma
-        predicted_disparity = imread(
-            os.path.join(location, "predicted_disparity.png")
-        ).astype("float32")
+        predicted_disparity = np.load(os.path.join(location, "predicted_disparity.npy"))
         # interpolate depths that are far too close together
-        predicted_disparity = (
-            (predicted_disparity - predicted_disparity.min())
-            / (predicted_disparity.max() - predicted_disparity.min())
-            * 255
-        )
 
-        actual_disparity = imread(
-            os.path.join(location, "actual_disparity.png")
-        ).astype("float32")
+        actual_disparity = np.load(os.path.join(location, "actual_disparity.npy"))
         sigma = compute_sigma(predicted_disparity, actual_disparity)
         # Apply all coordinate transformations that align habitat to MCI to the `transform` matrix
         transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
         poses = []
-        pose_paths = sorted(
-            glob.glob(os.path.join(location, "poses", "*.json"))
-        )  # TODO: sort on pose number instead of string (will fail for pose count > 10)
+
+        pose_paths = sorted(glob.glob(os.path.join(location, "poses", "*.json")))
         for path in pose_paths:
             with open(path) as f:
                 p = json.load(f)
@@ -274,10 +261,11 @@ def render_predicted_snapshots(data_path):
             render_mesh(
                 (512, 512),
                 os.path.join(location, "scene.jpeg"),
-                os.path.join(location, "predicted_disparity.png"),
+                predicted_disparity,
                 eye,
                 target,
                 up=up,
+                sigma=sigma,
             )
             for eye, target, up in poses
         )

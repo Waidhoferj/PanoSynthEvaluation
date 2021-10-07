@@ -44,16 +44,17 @@ window = None
 def render_mesh(
     image_size: Tuple[int, int],
     scene_texture_path: str,
-    disparity_path: str,
+    disparity: np.ndarray,
     eye: np.ndarray,
     target: np.ndarray,
     up=np.array([0, 1, 0]),
+    sigma=1,
 ):
     """
     Generates an snapshot using the mesh renderer
     - `image_size`: height by width of the image
     - `scene_texture_path`: cylindrical panoramic image of the scene
-    - `disparity_path`: path to the predicted disparity map of the scene
+    - `disparity`: the predicted disparity map of the scene
     - `eye`: location of the camera
     - `target`: center of the camera's view
     - `up`: up direction from the camera's perpective
@@ -72,10 +73,10 @@ def render_mesh(
         glutHideWindow(window)
     meshes = [
         DepthCylinder(
-            height=2.0 * scale,
-            radius=scale,
+            height=2.0 * sigma,
+            radius=sigma,
             texturepath=scene_texture_path,
-            disparitypath=disparity_path,
+            disparity=disparity,
             nsegments=360,
             nvertsegments=63,
         )

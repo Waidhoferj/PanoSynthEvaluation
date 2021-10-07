@@ -244,18 +244,10 @@ class Cylinder(Mesh):
 
 class DepthCylinder(Mesh):
     def __init__(
-        self,
-        height,
-        radius,
-        texturepath,
-        disparitypath,
-        nsegments=None,
-        nvertsegments=None,
+        self, height, radius, texturepath, disparity, nsegments=None, nvertsegments=None
     ):
         self.texture = imread(texturepath)
         self.texture = np.flipud(self.texture)
-
-        disparity = imread(disparitypath).astype("float32") / 255.0
         disparity = np.flipud(disparity)
         H, W = disparity.shape
 

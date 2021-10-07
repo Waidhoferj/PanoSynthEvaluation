@@ -60,27 +60,25 @@ class CylinderExtractor(ImageExtractor):
         return [info[0] for info in poses[idx]]
 
     def random_snapshot(
-        self, index, pitch_range=[90, 90], yaw_range=[0, 360], offset_range=[-0.1, 0.1]
+        self, index, pitch_range=[90, 90], yaw_range=[-45, 45], offset_range=[0.0, 0.1]
     ):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
         - `index`: the index of the panorama in the main image
         returns the image and json describing the offset
+        - `offset_range`: The maximum camera offset distance from the center of the panorama.
         - `pitch_range`: the range of possible degrees of rotation around the x axis (vertical range aka phi)
-        - `yaw_range`: the range of possible values of rotation around the y axis (horizontal range aka theta)
-        - `offset_range`: the range of possible translation values in the x and z dimension.
+        - `yaw_range`: the range of possible degrees of rotation around the y axis (horizontal range aka theta)
         """
         if not hasattr(self, "random_gen"):
             seed = 200
             self.random_gen = np.random.default_rng(seed)
-        cam_offset = self.random_gen.uniform(*offset_range, 3)
-        cam_offset[1] = 0.0  # Random point on x-z plane only.
-        pitch = self.random_gen.uniform(*pitch_range) / 180.0 * np.pi
-        yaw = self.random_gen.uniform(*yaw_range) / 180.0 * np.pi
-        x = np.cos(yaw) * np.sin(pitch)
-        y = np.cos(pitch)
-        z = np.sin(pitch) * np.sin(yaw)
-        target = cam_offset + np.array([x, y, z])
+        pitch = np.radians(self.random_gen.uniform(*pitch_range))
+        yaw = np.radians(self.random_gen.uniform(*yaw_range))
+        radius = self.random_gen.uniform(*offset_range)
+        theta = self.random_gen.uniform(0, np.pi * 2)
+        cam_offset = spherical_to_cartesian(radius, theta, np.pi / 2.0)
+        target = spherical_to_cartesian(1, theta + yaw, pitch) + cam_offset
         return (
             self.create_snapshot(index, target, cam_offset),
             {"eye": list(cam_offset), "target": list(target), "up": [0, 1, 0]},
@@ -144,9 +142,11 @@ class CylinderExtractor(ImageExtractor):
             color.append(extract_center(img["rgba"]))
         color = np.stack(color, axis=1).astype("uint8")
         depth = np.stack(depth, axis=1)
-        depth = depth + (1.0 - depth.min())
-        depth = 255.0 / depth
-        return {"depth": depth, "rgba": color}
+        # depth = depth + (1.0 - depth.min())
+
+        depth = 1 / depth
+        depth = np.nan_to_num(depth)
+        return {"disparity": depth, "rgba": color}
 
 
 # Pose extractor code
@@ -244,6 +244,18 @@ def lookAt(eye, center, up):
     T = np.eye(4)
     T[3, 0:3] = -eye
     return M @ T
+
+
+def spherical_to_cartesian(
+    radius: float, theta: float, phi: float
+) -> Tuple[float, float, float]:
+    """
+    Converts spherical coordinates to cartesian coordinates
+    """
+    x = np.cos(theta) * np.sin(phi)
+    y = np.cos(phi)
+    z = np.sin(phi) * np.sin(theta)
+    return radius * np.array([x, y, z])
 
 
 def normalize(vec):
