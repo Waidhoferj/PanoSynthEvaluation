@@ -32,8 +32,6 @@ import imageio
 from mesh_render.rendertools import *
 
 
-import cv2
-
 import argparse
 
 

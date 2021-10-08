@@ -145,7 +145,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
     os.makedirs(output_path)
     scene_paths = glob.glob(
         os.path.join(scene_path, "**", "*.glb"), recursive=True
-    ) + glob.glob(os.path.join(scene_path, "**" "*.ply"), recursive=True)
+    ) + glob.glob(os.path.join(scene_path, "**", "*.ply"), recursive=True)
     for scene in scene_paths:
         scene_name = os.path.split(scene)[1].split(".")[0]
         os.makedirs(os.path.join(output_path, scene_name))
@@ -188,7 +188,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             os.makedirs(os.path.join(location_path, "poses"))
             for i in range(snapshot_count):
                 snapshot, pose = extractor.random_snapshot(
-                    pano_i, offset_range=[0, 0.5]
+                    pano_i, offset_range=[0, 0.1]
                 )
                 with open(
                     os.path.join(location_path, "poses", f"pose_{i}.json"), "w"

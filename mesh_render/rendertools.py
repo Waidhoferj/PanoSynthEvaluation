@@ -3,7 +3,7 @@ from OpenGL.GLUT import *
 import numpy as np
 from imageio import imread, imwrite
 from scipy.special import cotdg
-import cv2
+from skimage.transform import resize
 
 mpi_vert = """
 #version 330
@@ -255,7 +255,7 @@ class DepthCylinder(Mesh):
             W = nsegments
         if nvertsegments is not None:
             H = nvertsegments
-        disparity = cv2.resize(disparity, (W, H), interpolation=cv2.INTER_LINEAR)
+        disparity = resize(disparity, (H, W))
 
         bottom = -height / 2
         top = height / 2

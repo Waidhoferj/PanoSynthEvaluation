@@ -19,7 +19,7 @@
       "console": "integratedTerminal",
       "args": [
         "--scene-dir",
-        "habitat/scene_datasets",
+        "../../../hm3d-train-habitat/curated",
         "--data-dir",
         "data",
         "--num-locations",

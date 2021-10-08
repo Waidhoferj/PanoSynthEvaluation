@@ -3,7 +3,6 @@ from OpenGL.GLUT import *
 import numpy as np
 from imageio import imread
 from scipy.special import cotdg
-import cv2
 
 vert = """
 #version 330
