@@ -60,7 +60,7 @@ class CylinderExtractor(ImageExtractor):
         return [info[0] for info in poses[idx]]
 
     def random_snapshot(
-        self, index, pitch_range=[90, 90], yaw_range=[-45, 45], offset_range=[0.0, 0.1]
+        self, index, pitch_range=[90, 90], yaw_range=[-45, 45], offset=0.1
     ):
         """
         Generates an image with a random position and rotation offset from the indicated panorama.
@@ -75,9 +75,8 @@ class CylinderExtractor(ImageExtractor):
             self.random_gen = np.random.default_rng(seed)
         pitch = np.radians(self.random_gen.uniform(*pitch_range))
         yaw = np.radians(self.random_gen.uniform(*yaw_range))
-        radius = self.random_gen.uniform(*offset_range)
         theta = self.random_gen.uniform(0, np.pi * 2)
-        cam_offset = spherical_to_cartesian(radius, theta, np.pi / 2.0)
+        cam_offset = spherical_to_cartesian(offset, theta, np.pi / 2.0)
         target = spherical_to_cartesian(1, theta + yaw, pitch) + cam_offset
         return (
             self.create_snapshot(index, target, cam_offset),

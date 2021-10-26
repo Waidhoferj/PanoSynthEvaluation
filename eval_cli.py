@@ -22,6 +22,9 @@ from argparse import ArgumentParser
 
 generate_mpi = None
 
+PANO_DIMENSIONS = (512, 2048)
+SNAPSHOT_DIMENSIONS = (PANO_DIMENSIONS[0],) * 2
+
 
 def main():
     global generate_mpi
@@ -139,6 +142,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
     - `location_count`: number of panoramas per scene.
     - `snapshot_count`: number of snapshots per location.
     """
+
     # Erase old data entries
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
@@ -146,12 +150,14 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
     scene_paths = glob.glob(
         os.path.join(scene_path, "**", "*.glb"), recursive=True
     ) + glob.glob(os.path.join(scene_path, "**", "*.ply"), recursive=True)
+    if len(scene_paths) == 0:
+        print(f"no scenes found in {scene_path}")
     for scene in scene_paths:
         scene_name = os.path.split(scene)[1].split(".")[0]
         os.makedirs(os.path.join(output_path, scene_name))
         extractor = CylinderExtractor(
             scene,
-            img_size=(512, 2048),
+            img_size=PANO_DIMENSIONS,
             output=["rgba", "depth"],
             pose_extractor_name="cylinder_pose_extractor",
             shuffle=False,
@@ -187,9 +193,7 @@ def generate_scene_data(scene_path, output_path, location_count, snapshot_count)
             os.makedirs(os.path.join(location_path, "snapshots"))
             os.makedirs(os.path.join(location_path, "poses"))
             for i in range(snapshot_count):
-                snapshot, pose = extractor.random_snapshot(
-                    pano_i, offset_range=[0, 0.1]
-                )
+                snapshot, pose = extractor.random_snapshot(pano_i, offset=0.1)
                 with open(
                     os.path.join(location_path, "poses", f"pose_{i}.json"), "w"
                 ) as f:
@@ -225,7 +229,10 @@ def render_predicted_snapshots(data_path):
         transform = Rotation.from_euler("y", 90, degrees=True).as_matrix()
         poses = []
 
-        pose_paths = sorted(glob.glob(os.path.join(location, "poses", "*.json")))
+        pose_paths = sorted(
+            glob.glob(os.path.join(location, "poses", "*.json")),
+            key=lambda p: int(os.path.basename(p).split("_")[1].split(".")[0]),
+        )
         for path in pose_paths:
             with open(path) as f:
                 p = json.load(f)
@@ -243,7 +250,9 @@ def render_predicted_snapshots(data_path):
             shutil.rmtree(mci_dir)
         os.makedirs(mci_dir)
         mci_renderer = MCIRenderer(
-            (512, 512), os.path.join(location, "layers", "layer_%d.png"), sigma=sigma
+            SNAPSHOT_DIMENSIONS,
+            os.path.join(location, "layers", "layer_%d.png"),
+            sigma=sigma,
         )
         mci_renders = (
             mci_renderer.render_image(eye, target, up=up) for eye, target, up in poses
@@ -259,7 +268,7 @@ def render_predicted_snapshots(data_path):
         os.makedirs(mesh_dir)
         mesh_renders = (
             render_mesh(
-                (512, 512),
+                SNAPSHOT_DIMENSIONS,
                 os.path.join(location, "scene.jpeg"),
                 predicted_disparity,
                 eye,
