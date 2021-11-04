@@ -9,7 +9,7 @@ import numpy as np
 def has_rip(image_path: str) -> bool:
     thresh = 20
     im = imageio.imread(image_path)
-    return np.sum(im == 0) > thresh
+    return np.sum(im == 0) > thr
 
 
 def filter_out_blanks(data_dir: str):
@@ -21,9 +21,10 @@ def filter_out_blanks(data_dir: str):
         mci_snaps = iglob(path.join(location, "mci-snapshots", "*.png"))
         mesh_snaps = iglob(path.join(location, "mesh-snapshots", "*.png"))
         poses = iglob(path.join(location, "poses", ".json"))
-        # For all
-        i += 1
-    print(f"Removed {i} layer folders.")
+        for snap in mci_snaps:
+            if has_rip(snap):
+                i += 1
+    print(f"found {i} dark shots with this threshold.")
 
 
 if __name__ == "__main__":
