@@ -141,11 +141,10 @@ class CylinderExtractor(ImageExtractor):
             color.append(extract_center(img["rgba"]))
         color = np.stack(color, axis=1).astype("uint8")
         depth = np.stack(depth, axis=1)
-        # depth = depth + (1.0 - depth.min())
 
-        depth = 1 / depth
-        depth = np.nan_to_num(depth)
-        return {"disparity": depth, "rgba": color}
+        disparity = 1 / depth
+        disparity = np.nan_to_num(disparity)
+        return {"disparity": disparity, "rgba": color}
 
 
 # Pose extractor code
